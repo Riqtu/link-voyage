@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Link Voyage icon">
+  <rect width="256" height="256" rx="48" fill="#0f172a" />
+  <path d="M62 128c0-23 19-42 42-42h26v24h-26a18 18 0 100 36h26v24h-26c-23 0-42-19-42-42z" fill="#fff"/>
+  <path d="M194 128c0 23-19 42-42 42h-26v-24h26a18 18 0 100-36h-26V86h26c23 0 42 19 42 42z" fill="#fff"/>
+  <rect x="94" y="116" width="68" height="24" rx="12" fill="#38bdf8"/>
+</svg>

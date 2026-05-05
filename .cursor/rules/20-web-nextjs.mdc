@@ -1,0 +1,23 @@
+---
+description: Frontend standards for Next.js, shadcn, Tailwind, and PWA
+globs: apps/web/**/*.{ts,tsx,js,jsx,mjs}
+alwaysApply: false
+---
+
+# Web Standards (`apps/web`)
+
+- Use App Router patterns and keep route components focused on UI composition.
+- Build UI with shadcn primitives first; keep styling token-driven via Tailwind variables.
+- Prefer server components by default; use client components only when state/effects are required.
+- Keep pages lightweight; extract reusable logic into `src/lib` or feature-level modules.
+
+# PWA and Build Constraints
+
+- Keep `next-pwa` compatibility with Next.js 16 by using webpack mode where required.
+- Do not manually edit generated `public/sw.js` or `public/workbox-*.js`.
+- Ensure `manifest` metadata stays aligned with product branding and installability.
+
+# Data Access
+
+- Validate request/response data with Zod at API boundaries.
+- Use typed clients and avoid duplicating API contract shapes manually.

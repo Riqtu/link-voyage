@@ -1,0 +1,19 @@
+---
+description: Core workspace standards for Link Voyage monorepo
+alwaysApply: true
+---
+
+# Link Voyage Core Standards
+
+- Work in a pnpm workspace with apps split by runtime: `apps/web` and `apps/api`.
+- Prefer minimal, targeted changes; do not refactor unrelated files.
+- Keep strict TypeScript safety; avoid `any` unless there is a clear boundary reason.
+- Follow existing project scripts and tooling before introducing new ones.
+- Add or update `.env.example` when introducing required env variables.
+- For generated artifacts (e.g. service worker bundles), configure ignores instead of hand-editing generated files.
+
+# Architecture Direction
+
+- Keep business logic modular and domain-first.
+- Share contracts with runtime validation (prefer Zod at boundaries).
+- Optimize for collaboration features: realtime-safe updates, idempotent writes, and auditability.

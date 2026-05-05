@@ -1,0 +1,17 @@
+---
+description: Product-oriented guardrails for collaborative trip planning features
+alwaysApply: true
+---
+
+# Product Guardrails
+
+- Prioritize group planning workflows: shared itinerary, voting, expenses, and role-based collaboration.
+- Design for conflict resolution: concurrent edits, schedule collisions, and budget disagreements.
+- Keep privacy explicit for location and personal travel data.
+- Prefer transparent AI assistance: editable suggestions, user override, and clear assumptions.
+
+# UX Expectations
+
+- Mobile-first interactions for on-trip usage.
+- Fast perceived performance for list/map transitions.
+- Accessible components and keyboard-safe interactions by default.

@@ -1,0 +1,24 @@
+---
+description: Backend standards for NestJS, tRPC, Mongoose, and Redis
+globs: apps/api/**/*.ts
+alwaysApply: false
+---
+
+# API Standards (`apps/api`)
+
+- Keep Nest modules cohesive: controller/entrypoints thin, business logic in services/use-cases.
+- Prefer typed tRPC procedures for internal app API and validate inputs with Zod.
+- Keep context creation explicit and side-effect free.
+
+# Mongo and Redis
+
+- Model Mongo collections by domain boundaries; avoid oversized documents.
+- Use indexes for frequent filters/sorts and geo queries when relevant.
+- Use Redis for cache/queue/rate-limit concerns; keep key naming explicit and scoped.
+- Favor idempotent write paths for collaborative actions (votes, expenses, itinerary edits).
+
+# Reliability
+
+- Add health checks for core dependencies where practical.
+- Fail fast on truly required configuration, but provide safe local defaults for DX.
+- Keep lint/build green after each meaningful backend change.
