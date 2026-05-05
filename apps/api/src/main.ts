@@ -14,6 +14,10 @@ import {
 import { AppModule } from './app.module';
 import { TripDoc, TripDocDocument } from './trip-docs/trip-doc.model';
 import { TripPoint, TripPointDocument } from './trip-points/trip-point.model';
+import {
+  TripReceipt,
+  TripReceiptDocument,
+} from './trip-receipts/trip-receipt.model';
 import { Trip, TripDocument } from './trips/trip.model';
 import { createTrpcContext, getAuthUserFromRequest } from './trpc/trpc.context';
 import { appRouter } from './trpc/trpc.router';
@@ -39,6 +43,9 @@ async function bootstrap() {
   const tripDocModel = app.get<Model<TripDocDocument>>(
     getModelToken(TripDoc.name),
   );
+  const tripReceiptModel = app.get<Model<TripReceiptDocument>>(
+    getModelToken(TripReceipt.name),
+  );
 
   const expressApp = app.getHttpAdapter().getInstance() as unknown as Express;
   expressApp.use(
@@ -57,6 +64,7 @@ async function bootstrap() {
             accommodationCommentModel,
             tripPointModel,
             tripDocModel,
+            tripReceiptModel,
           },
         }),
     }),

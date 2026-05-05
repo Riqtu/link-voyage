@@ -5,7 +5,7 @@ import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
 import { cn } from "@/lib/utils";
 import { Dialog } from "@base-ui/react/dialog";
-import { FileText, Hotel, MapPinned, Trash2 } from "lucide-react";
+import { FileText, Hotel, MapPinned, Receipt, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -237,7 +237,7 @@ export default function TripDetailsPage() {
           ) : null}
 
           <nav
-            className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3"
+            className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4"
             aria-label="Разделы поездки"
           >
             <Link
@@ -301,6 +301,27 @@ export default function TripDetailsPage() {
               </span>
               <span className="mt-4 text-base font-semibold leading-snug text-foreground">
                 Документы
+              </span>
+            </Link>
+            <Link
+              href={`/trips/${id}/receipts`}
+              className={cn(
+                "group flex min-h-40 flex-col rounded-2xl border border-border bg-linear-to-br from-muted/40 to-muted/10 p-5 text-center shadow-sm transition-colors",
+                "hover:border-primary/40 hover:from-muted/55 hover:to-muted/25 hover:shadow-md",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+              )}
+            >
+              <span className="flex min-h-21 flex-1 flex-col items-center justify-center">
+                <span className="rounded-2xl border border-primary/15 bg-primary/10 p-4 transition-colors group-hover:border-primary/25 group-hover:bg-primary/14">
+                  <Receipt
+                    className="size-12 text-primary"
+                    strokeWidth={1.75}
+                    aria-hidden
+                  />
+                </span>
+              </span>
+              <span className="mt-4 text-base font-semibold leading-snug text-foreground">
+                Чеки
               </span>
             </Link>
           </nav>

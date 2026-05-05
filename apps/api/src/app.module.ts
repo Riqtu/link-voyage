@@ -14,6 +14,10 @@ import { AppService } from './app.service';
 import { RedisProvider } from './redis.provider';
 import { TripDoc, TripDocSchema } from './trip-docs/trip-doc.model';
 import { TripPoint, TripPointSchema } from './trip-points/trip-point.model';
+import {
+  TripReceipt,
+  TripReceiptSchema,
+} from './trip-receipts/trip-receipt.model';
 import { Trip, TripSchema } from './trips/trip.model';
 import { User, UserSchema } from './users/user.model';
 
@@ -41,6 +45,7 @@ import { User, UserSchema } from './users/user.model';
       },
       { name: TripPoint.name, schema: TripPointSchema },
       { name: TripDoc.name, schema: TripDocSchema },
+      { name: TripReceipt.name, schema: TripReceiptSchema },
     ]),
   ],
   controllers: [AppController],

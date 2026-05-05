@@ -4,4 +4,4 @@ export {
   deleteDocumentObject,
   signDocumentUpload,
 } from './s3.document-upload';
-export { signImageUpload } from './s3.image-upload';
+export { signImageUpload, signReceiptImageUpload } from './s3.image-upload';

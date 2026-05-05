@@ -109,3 +109,41 @@ export async function signImageUpload(opts: {
 
   return { uploadUrl, objectKey, publicUrl };
 }
+
+export async function signReceiptImageUpload(opts: {
+  tripId: string;
+  filename: string;
+  contentType: string;
+  size: number;
+}): Promise<SignedImageUpload> {
+  const { tripId, filename, contentType, size } = opts;
+
+  assertAllowedImage(contentType, filename, size);
+
+  const bucket = requireEnv('AWS_S3_BUCKET');
+  const endpoint = requireEnv('AWS_S3_ENDPOINT').replace(/\/$/, '');
+
+  const safeName = sanitizeFilename(filename);
+  const ext = path.extname(safeName).toLowerCase();
+  const allowed = ALLOWED_EXTENSIONS.has(ext);
+  const finalName = allowed ? safeName : `${safeName}.jpg`;
+
+  const objectId = randomBytes(16).toString('hex');
+  const objectKey = `trips/${tripId}/receipts/${objectId}/${finalName}`;
+
+  const s3 = getS3Client();
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: objectKey,
+    ContentType: contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(s3, command, {
+    expiresIn: SIGNED_URL_TTL_SECONDS,
+  });
+
+  const publicUrl = `${endpoint}/${bucket}/${encodeKeyForUrl(objectKey)}`;
+
+  return { uploadUrl, objectKey, publicUrl };
+}

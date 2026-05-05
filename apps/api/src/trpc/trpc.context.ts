@@ -5,6 +5,7 @@ import { AccommodationDocument } from '../accommodations/accommodation.model';
 import { AuthTokenPayload, verifyAccessToken } from '../auth/auth.utils';
 import { TripDocDocument } from '../trip-docs/trip-doc.model';
 import { TripPointDocument } from '../trip-points/trip-point.model';
+import { TripReceiptDocument } from '../trip-receipts/trip-receipt.model';
 import { TripDocument } from '../trips/trip.model';
 import { UserDocument } from '../users/user.model';
 
@@ -19,6 +20,7 @@ export type TrpcContext = {
     accommodationCommentModel: Model<AccommodationCommentDocument>;
     tripPointModel: Model<TripPointDocument>;
     tripDocModel: Model<TripDocDocument>;
+    tripReceiptModel: Model<TripReceiptDocument>;
   };
 };
 

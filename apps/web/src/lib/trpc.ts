@@ -356,6 +356,110 @@ export type ApiClient = {
       mutate(input: { docId: string }): Promise<{ success: true }>;
     };
   };
+  tripReceipt: {
+    list: {
+      query(input: { tripId: string }): Promise<
+        {
+          id: string;
+          tripId: string;
+          title: string;
+          description: string;
+          paidByUserId: string;
+          paidByUserName: string;
+          currency: string;
+          imageUrl: string | null;
+          lineItemCount: number;
+          totalAmount: number;
+          createdAt: string | null;
+        }[]
+      >;
+    };
+    byId: {
+      query(input: { receiptId: string }): Promise<{
+        id: string;
+        tripId: string;
+        title: string;
+        description: string;
+        paidByUserId: string;
+        paidByUserName: string;
+        currency: string;
+        imageUrl: string | null;
+        lineItems: {
+          id: string;
+          name: string;
+          qty: number;
+          unitPrice?: number;
+          lineTotal: number;
+          participantUserIds: string[];
+          consumptions: { userId: string; qty: number }[];
+          consumedQtyTotal: number;
+        }[];
+        members: { userId: string; name: string }[];
+        shareByMember: Record<string, number>;
+        reimbursedPayerUserIds: string[];
+        viewerId: string;
+        totalAmount: number;
+        anyLineSelections: boolean;
+        hypotheticalShareAllEqual: number | null;
+      }>;
+    };
+    create: {
+      mutate(input: {
+        tripId: string;
+        title: string;
+        description?: string;
+        paidByUserId: string;
+      }): Promise<{ id: string }>;
+    };
+    update: {
+      mutate(input: {
+        receiptId: string;
+        title: string;
+        description?: string;
+        paidByUserId: string;
+      }): Promise<{ success: true }>;
+    };
+    delete: {
+      mutate(input: { receiptId: string }): Promise<{ success: true }>;
+    };
+    setImageUrl: {
+      mutate(input: {
+        receiptId: string;
+        imageUrl: string;
+      }): Promise<{ success: true }>;
+    };
+    analyzeWithGemini: {
+      mutate(input: { receiptId: string }): Promise<{
+        success: true;
+        lineCount: number;
+        currency: string;
+      }>;
+    };
+    updateLineItems: {
+      mutate(input: {
+        receiptId: string;
+        lineItems: {
+          id: string;
+          name: string;
+          qty: number;
+          unitPrice?: number;
+          lineTotal: number;
+          participantUserIds?: string[];
+          consumptions?: { userId: string; qty: number }[];
+        }[];
+      }): Promise<{ success: true }>;
+    };
+    setLineConsumption: {
+      mutate(input: {
+        receiptId: string;
+        lineItemId: string;
+        qty: number;
+      }): Promise<{ success: true }>;
+    };
+    toggleReimbursedPayer: {
+      mutate(input: { receiptId: string }): Promise<{ success: true }>;
+    };
+  };
   s3: {
     getSignedImageUploadUrl: {
       mutate(input: {
@@ -379,6 +483,18 @@ export type ApiClient = {
         objectKey: string;
         publicUrl: string;
         contentType: string;
+      }>;
+    };
+    getSignedReceiptImageUploadUrl: {
+      mutate(input: {
+        tripId: string;
+        filename: string;
+        contentType: string;
+        size: number;
+      }): Promise<{
+        uploadUrl: string;
+        objectKey: string;
+        publicUrl: string;
       }>;
     };
   };
