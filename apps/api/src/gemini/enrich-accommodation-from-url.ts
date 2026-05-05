@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
+import { runGeminiThroughOptionalProxy } from './gemini-outbound-proxy';
 
 import type { LinkPreviewResult } from '../link-preview/link-preview';
 import { fetchLinkPreview } from '../link-preview/link-preview';
@@ -198,7 +199,9 @@ KNOWN_IMAGE_URLS:
 ${imagesBlock}
 `;
 
-  const result = await model.generateContent(userPayload);
+  const result = await runGeminiThroughOptionalProxy(() =>
+    model.generateContent(userPayload),
+  );
   const text = result.response.text();
   if (!text.trim()) {
     throw new Error('Gemini вернул пустой ответ');

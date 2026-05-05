@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { runGeminiThroughOptionalProxy } from './gemini-outbound-proxy';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -140,15 +141,17 @@ export async function analyzeReceiptImageFromUrl(
   const prompt =
     'Распознай позиции и суммы по этому изображению чека по правилам выше.';
 
-  const result = await model.generateContent([
-    {
-      inlineData: {
-        mimeType: mime,
-        data: buf.toString('base64'),
+  const result = await runGeminiThroughOptionalProxy(() =>
+    model.generateContent([
+      {
+        inlineData: {
+          mimeType: mime,
+          data: buf.toString('base64'),
+        },
       },
-    },
-    { text: prompt },
-  ]);
+      { text: prompt },
+    ]),
+  );
 
   const text = result.response.text()?.trim();
   if (!text) {
