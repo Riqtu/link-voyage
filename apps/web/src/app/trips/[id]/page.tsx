@@ -3,12 +3,23 @@
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
+import {
+  tripTimezoneOptionsForGroup,
+  tripTimezoneSelectModel,
+} from "@/lib/trip-timezone-options";
 import { cn } from "@/lib/utils";
 import { Dialog } from "@base-ui/react/dialog";
-import { FileText, Hotel, MapPinned, Receipt, Trash2 } from "lucide-react";
+import {
+  FileText,
+  Hotel,
+  MapPinned,
+  Receipt,
+  Trash2,
+  User,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 type TripDetails = {
   id: string;
@@ -23,7 +34,11 @@ type TripDetails = {
   members: {
     userId: string;
     role: "owner" | "member";
-    name: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl: string | null;
+    displayName: string;
   }[];
 };
 
@@ -46,6 +61,7 @@ export default function TripDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const settingsFormId = useId();
 
   async function reloadTripMembersOnly() {
     try {
@@ -199,6 +215,11 @@ export default function TripDetailsPage() {
       );
     }
   }
+
+  const timezoneSelectModel = useMemo(
+    () => tripTimezoneSelectModel(timezoneField),
+    [timezoneField],
+  );
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
@@ -375,7 +396,7 @@ export default function TripDetailsPage() {
           >
             <Dialog.Portal>
               <Dialog.Backdrop className="fixed inset-0 z-[2100] bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-              <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-[2110] max-h-[min(85dvh,calc(100vh-3rem))] w-[min(100vw-1.75rem,28rem)] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
+              <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-[2110] max-h-[min(85dvh,calc(100vh-3rem))] w-[min(100vw-1.75rem,32rem)] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
                 <Dialog.Title className="text-lg font-semibold tracking-tight">
                   Настройки поездки
                 </Dialog.Title>
@@ -384,63 +405,106 @@ export default function TripDetailsPage() {
                   требований к жилью.
                 </Dialog.Description>
 
-                <div className="mt-4 grid gap-3">
-                  <label className="flex flex-col gap-1 text-xs md:col-span-2">
-                    <span className="text-muted-foreground">
+                <div className="mt-4 space-y-4">
+                  <div className="space-y-1">
+                    <label
+                      className="block text-xs text-muted-foreground leading-snug"
+                      htmlFor={`${settingsFormId}-people`}
+                    >
                       Количество человек
-                    </span>
+                    </label>
                     <input
+                      id={`${settingsFormId}-people`}
                       type="number"
                       min={1}
                       max={99}
-                      className="w-full max-w-32 rounded-lg border bg-background px-3 py-2 text-sm"
+                      className="h-10 w-full max-w-32 rounded-lg border border-input bg-background px-3 text-sm"
                       value={peopleCountField}
                       onChange={(event) =>
                         setPeopleCountField(event.target.value)
                       }
                     />
-                  </label>
-                  <label className="flex flex-col gap-1 text-xs">
-                    <span className="text-muted-foreground">Дата начала</span>
+                  </div>
+
+                  <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
+                    <label
+                      className="text-xs text-muted-foreground leading-snug"
+                      htmlFor={`${settingsFormId}-start`}
+                    >
+                      Дата начала
+                    </label>
+                    <label
+                      className="text-xs text-muted-foreground leading-snug"
+                      htmlFor={`${settingsFormId}-end`}
+                    >
+                      Дата конца
+                    </label>
                     <input
+                      id={`${settingsFormId}-start`}
                       type="date"
-                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       value={startDateField}
                       onChange={(event) =>
                         setStartDateField(event.target.value)
                       }
                     />
-                  </label>
-                  <label className="flex flex-col gap-1 text-xs">
-                    <span className="text-muted-foreground">Дата конца</span>
                     <input
+                      id={`${settingsFormId}-end`}
                       type="date"
-                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       value={endDateField}
                       onChange={(event) => setEndDateField(event.target.value)}
                     />
-                  </label>
-                  <label className="flex flex-col gap-1 text-xs">
-                    <span className="text-muted-foreground">Таймзона</span>
-                    <input
-                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                  </div>
+
+                  <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
+                    <label
+                      className="self-end text-pretty text-xs text-muted-foreground leading-snug"
+                      htmlFor={`${settingsFormId}-tz`}
+                    >
+                      Таймзона
+                    </label>
+                    <label
+                      className="text-pretty text-xs text-muted-foreground leading-snug"
+                      htmlFor={`${settingsFormId}-housing`}
+                    >
+                      Требования к жилью (через запятую)
+                    </label>
+                    <select
+                      id={`${settingsFormId}-tz`}
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       value={timezoneField}
                       onChange={(event) => setTimezoneField(event.target.value)}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-xs">
-                    <span className="text-muted-foreground">
-                      Требования к жилью (через запятую)
-                    </span>
+                    >
+                      {timezoneSelectModel.extraGroup ? (
+                        <optgroup label="Сохранённое значение">
+                          {timezoneSelectModel.extraGroup.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
+                      {timezoneSelectModel.groups.map((groupName) => (
+                        <optgroup key={groupName} label={groupName}>
+                          {tripTimezoneOptionsForGroup(groupName).map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                     <input
-                      className="rounded-lg border bg-background px-3 py-2 text-sm"
+                      id={`${settingsFormId}-housing`}
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       placeholder="wifi, кухня, рядом с центром"
                       value={requirementsField}
                       onChange={(event) =>
                         setRequirementsField(event.target.value)
                       }
                     />
-                  </label>
+                  </div>
                 </div>
 
                 <div className="mt-6 flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
@@ -468,7 +532,8 @@ export default function TripDetailsPage() {
           <div className="mt-6">
             <h3 className="text-sm font-medium">Участники</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              В списке — имя и роль. Удалять может только организатор поездки.
+              Аватары, имена, email и роль. Удалять участника может только
+              организатор.
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
               Всего: {trip.members.length}
@@ -477,39 +542,83 @@ export default function TripDetailsPage() {
               {trip.members.map((member) => {
                 const canRemove =
                   trip.viewerRole === "owner" && member.role !== "owner";
+                const fullName = member.displayName;
+                const reserveDeleteSlot = trip.viewerRole === "owner";
                 return (
                   <li
                     key={member.userId}
-                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 text-sm"
+                    className="flex items-center gap-3 px-3 py-3 text-sm"
                   >
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground">
-                        {member.name}
+                    <div className="relative size-11 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
+                      {member.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- URL из S3 участника
+                        <img
+                          src={member.avatarUrl}
+                          alt=""
+                          className="absolute inset-0 size-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="flex size-full items-center justify-center text-muted-foreground">
+                          <User className="size-5" aria-hidden />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-foreground">
+                        {fullName}
                       </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {tripMemberRoleLabel(member.role)}
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {member.email ? member.email : "—"}
                       </p>
                     </div>
-                    {canRemove ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        disabled={removingUserId === member.userId}
-                        aria-label={`Удалить ${member.name} из поездки`}
-                        onClick={() =>
-                          void removeParticipant(member.userId, member.name)
-                        }
-                      >
-                        <Trash2 className="size-4 sm:mr-1" aria-hidden />
-                        <span className="hidden sm:inline">
-                          {removingUserId === member.userId
-                            ? "Удаляем..."
-                            : "Удалить"}
-                        </span>
-                      </Button>
-                    ) : null}
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium uppercase leading-none tracking-wide text-primary">
+                        {tripMemberRoleLabel(member.role)}
+                      </span>
+                      {reserveDeleteSlot ? (
+                        canRemove ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            disabled={removingUserId === member.userId}
+                            aria-busy={
+                              removingUserId === member.userId || undefined
+                            }
+                            aria-label={
+                              removingUserId === member.userId
+                                ? `Удаляем ${member.displayName} из поездки`
+                                : `Удалить ${member.displayName} из поездки`
+                            }
+                            onClick={() =>
+                              void removeParticipant(
+                                member.userId,
+                                member.displayName,
+                              )
+                            }
+                          >
+                            <Trash2 className="size-4" aria-hidden />
+                          </Button>
+                        ) : (
+                          <span
+                            className="pointer-events-none invisible inline-flex shrink-0"
+                            aria-hidden
+                          >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled
+                              tabIndex={-1}
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                            </Button>
+                          </span>
+                        )
+                      ) : null}
+                    </div>
                   </li>
                 );
               })}

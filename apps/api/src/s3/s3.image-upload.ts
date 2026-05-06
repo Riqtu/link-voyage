@@ -110,6 +110,59 @@ export async function signImageUpload(opts: {
   return { uploadUrl, objectKey, publicUrl };
 }
 
+/** Публичный URL аватара только из нашего bucket и пути users/{userId}/avatar/ */
+export function assertTrustedUserAvatarUrl(url: string, userId: string): void {
+  const endpointRaw = process.env.AWS_S3_ENDPOINT ?? '';
+  const bucket = process.env.AWS_S3_BUCKET ?? '';
+  if (!endpointRaw || !bucket) {
+    throw new Error('S3 не настроен (AWS_S3_*)');
+  }
+  const endpoint = endpointRaw.replace(/\/$/, '');
+  const expectedPrefix = `${endpoint}/${bucket}/users/${userId}/avatar/`;
+  const normalizedUrl = decodeURI(url.trim());
+  if (!normalizedUrl.startsWith(expectedPrefix)) {
+    throw new Error('URL аватара не из вашей папки загрузок в S3');
+  }
+}
+
+export async function signUserAvatarUpload(opts: {
+  userId: string;
+  filename: string;
+  contentType: string;
+  size: number;
+}): Promise<SignedImageUpload> {
+  const { userId, filename, contentType, size } = opts;
+
+  assertAllowedImage(contentType, filename, size);
+
+  const bucket = requireEnv('AWS_S3_BUCKET');
+  const endpoint = requireEnv('AWS_S3_ENDPOINT').replace(/\/$/, '');
+
+  const safeName = sanitizeFilename(filename);
+  const ext = path.extname(safeName).toLowerCase();
+  const allowed = ALLOWED_EXTENSIONS.has(ext);
+  const finalName = allowed ? safeName : `${safeName}.jpg`;
+
+  const objectId = randomBytes(16).toString('hex');
+  const objectKey = `users/${userId}/avatar/${objectId}/${finalName}`;
+
+  const s3 = getS3Client();
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: objectKey,
+    ContentType: contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(s3, command, {
+    expiresIn: SIGNED_URL_TTL_SECONDS,
+  });
+
+  const publicUrl = `${endpoint}/${bucket}/${encodeKeyForUrl(objectKey)}`;
+
+  return { uploadUrl, objectKey, publicUrl };
+}
+
 export async function signReceiptImageUpload(opts: {
   tripId: string;
   filename: string;

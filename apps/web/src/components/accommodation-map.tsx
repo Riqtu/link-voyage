@@ -1,14 +1,14 @@
 "use client";
 
 import { AccommodationStatusBadgeFromUnknown } from "@/components/accommodation-status-badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   GOOGLE_MAP_MARKER_LIBRARY,
   GOOGLE_MAPS_JS_LOADER_ID,
 } from "@/lib/google-maps-js-loader";
 import { cn } from "@/lib/utils";
 import { GoogleMap, InfoWindowF, useJsApiLoader } from "@react-google-maps/api";
-import { ListOrdered } from "lucide-react";
+import { ExternalLink, ListOrdered } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 function formatRubFromUsd(priceUsd: number, rubPerUsd: number): string {
@@ -191,7 +191,7 @@ export function AccommodationMap(props: {
         width: "100%",
         borderRadius: "0.75rem",
       }}
-      options={{ mapId }}
+      options={{ mapId, mapTypeControl: false }}
       onLoad={(map) => {
         setMap(map);
       }}
@@ -309,11 +309,18 @@ export function AccommodationMap(props: {
               </div>
               {activePoint.sourceUrl ? (
                 <a
-                  className="mt-2 inline-block max-w-full break-all text-xs underline"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "mt-2 inline-flex w-full justify-center gap-1.5 break-all text-xs no-underline",
+                  )}
                   href={activePoint.sourceUrl}
                   target="_blank"
                   rel="noreferrer"
                 >
+                  <ExternalLink
+                    className="size-3 shrink-0 opacity-80"
+                    aria-hidden
+                  />
                   Открыть источник
                 </a>
               ) : null}

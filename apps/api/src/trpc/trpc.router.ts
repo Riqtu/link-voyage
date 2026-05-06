@@ -4,25 +4,44 @@ import { randomBytes } from 'node:crypto';
 import superjson from 'superjson';
 import { z } from 'zod';
 import {
+  accommodationPreviewImagesInputSchema,
+  normalizePreviewImageItems,
+} from '../accommodations/accommodation-preview-images';
+import {
   hashPassword,
   signAccessToken,
   verifyPassword,
 } from '../auth/auth.utils';
+import {
+  promoteListedAdminIfNeeded,
+  resolveSystemRole,
+} from '../auth/system-admin';
 import { getUsdRubRateFromCbr } from '../forex/cbr-usd-rub';
 import {
   analyzeReceiptImageFromUrl,
   assertTrustedReceiptImageUrl,
 } from '../gemini/analyze-receipt-image';
-import { enrichAccommodationFromUrl } from '../gemini/enrich-accommodation-from-url';
+import {
+  enrichAccommodationFromPastedHtml,
+  enrichAccommodationFromUrl,
+} from '../gemini/enrich-accommodation-from-url';
+import { parseGalleryZonesFromPastedHtml } from '../gemini/parse-gallery-zones-from-html';
 import { fetchLinkPreview } from '../link-preview/link-preview';
 import {
+  MAX_PASTED_LISTING_HTML_CHARS,
+  MIN_PASTED_LISTING_HTML_CHARS,
+} from '../link-preview/link-preview-from-paste';
+import {
   assertDocumentObjectKeyForTrip,
+  assertTrustedUserAvatarUrl,
   buildPublicDocumentUrl,
   deleteDocumentObject,
   signDocumentUpload,
   signImageUpload,
   signReceiptImageUpload,
+  signUserAvatarUpload,
 } from '../s3';
+import { formatUserDisplayName } from '../users/user-display-name';
 import { TrpcContext } from './trpc.context';
 
 const t = initTRPC.context<TrpcContext>().create({
@@ -38,6 +57,31 @@ const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     });
   }
   return next({ ctx: { ...ctx, authUser: ctx.authUser } });
+});
+
+async function assertIsSystemAdmin(
+  authUserSub: string,
+  userModel: TrpcContext['models']['userModel'],
+) {
+  const actor = await userModel.findById(authUserSub).lean();
+  if (!actor) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Пользователь не найден',
+    });
+  }
+  if (resolveSystemRole(actor as { systemRole?: string }) !== 'admin') {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Недостаточно прав администратора',
+    });
+  }
+}
+
+/** Только пользователи с systemRole admin (или поднятые через ADMIN_EMAILS при входе). */
+const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  await assertIsSystemAdmin(ctx.authUser.sub, ctx.models.userModel);
+  return next({ ctx });
 });
 
 const authInputSchema = z.object({
@@ -86,7 +130,7 @@ const accommodationInputSchema = z.object({
   amenities: z.array(z.string().min(1).max(30)).max(20).default([]),
   notes: z.string().max(500).optional(),
   previewDescription: z.string().max(8000).optional(),
-  previewImages: z.array(z.string().url()).max(8).optional(),
+  previewImages: accommodationPreviewImagesInputSchema,
 });
 
 async function assertTripMemberAccess(
@@ -210,6 +254,29 @@ function receiptLineHasSelections(line: ReceiptLineForShare): boolean {
 
 const RECEIPT_LINE_QTY_EPS = 1e-4;
 
+function toAuthClientUser(user: {
+  _id: Types.ObjectId;
+  email: string;
+  name: string;
+  lastName?: string;
+  avatarUrl?: string;
+  systemRole?: string;
+}) {
+  const avatarRaw = user.avatarUrl;
+  return {
+    id: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    lastName: user.lastName ?? '',
+    displayName: formatUserDisplayName(user),
+    avatarUrl:
+      typeof avatarRaw === 'string' && avatarRaw.trim().length > 0
+        ? avatarRaw.trim()
+        : null,
+    systemRole: resolveSystemRole(user),
+  };
+}
+
 export const appRouter = t.router({
   health: publicProcedure.query(() => ({
     status: 'ok',
@@ -237,15 +304,18 @@ export const appRouter = t.router({
           passwordHash,
         });
 
+        await promoteListedAdminIfNeeded(user);
+
+        const displayName = formatUserDisplayName(user);
         const token = signAccessToken({
           sub: user._id.toString(),
           email: user.email,
-          name: user.name,
+          name: displayName,
         });
 
         return {
           token,
-          user: { id: user._id.toString(), email: user.email, name: user.name },
+          user: toAuthClientUser(user),
         };
       }),
     login: publicProcedure
@@ -270,15 +340,18 @@ export const appRouter = t.router({
           });
         }
 
+        await promoteListedAdminIfNeeded(user);
+
+        const displayName = formatUserDisplayName(user);
         const token = signAccessToken({
           sub: user._id.toString(),
           email: user.email,
-          name: user.name,
+          name: displayName,
         });
 
         return {
           token,
-          user: { id: user._id.toString(), email: user.email, name: user.name },
+          user: toAuthClientUser(user),
         };
       }),
     me: protectedProcedure.query(async ({ ctx }) => {
@@ -290,8 +363,195 @@ export const appRouter = t.router({
           message: 'Пользователь не найден',
         });
       }
-      return { id: user._id.toString(), email: user.email, name: user.name };
+      await promoteListedAdminIfNeeded(user);
+      return toAuthClientUser(user);
     }),
+    updateProfile: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(1).max(80).trim(),
+          lastName: z.string().max(80).trim().optional(),
+          avatarUrl: z.union([z.string().url().max(2048), z.null()]).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { userModel } = ctx.models;
+        const user = await userModel.findById(ctx.authUser.sub);
+        if (!user) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Пользователь не найден',
+          });
+        }
+        user.name = input.name;
+        if (input.lastName !== undefined) {
+          user.lastName =
+            input.lastName.length > 0 ? input.lastName : undefined;
+        }
+        if (input.avatarUrl !== undefined) {
+          if (input.avatarUrl === null) {
+            user.avatarUrl = undefined;
+          } else {
+            assertTrustedUserAvatarUrl(input.avatarUrl, ctx.authUser.sub);
+            user.avatarUrl = input.avatarUrl.trim();
+          }
+        }
+        await user.save();
+        return toAuthClientUser(user);
+      }),
+    changePassword: protectedProcedure
+      .input(
+        z.object({
+          currentPassword: z.string().min(1).max(72),
+          newPassword: z.string().min(8).max(72),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { userModel } = ctx.models;
+        const user = await userModel.findById(ctx.authUser.sub);
+        if (!user) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Пользователь не найден',
+          });
+        }
+        const valid = await verifyPassword(
+          input.currentPassword,
+          user.passwordHash,
+        );
+        if (!valid) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Неверный текущий пароль',
+          });
+        }
+        user.passwordHash = await hashPassword(input.newPassword);
+        await user.save();
+        return { success: true as const };
+      }),
+  }),
+  admin: t.router({
+    listUsers: adminProcedure.query(async ({ ctx }) => {
+      const { userModel } = ctx.models;
+      const users = await userModel
+        .find({})
+        .sort({ email: 1 })
+        .limit(500)
+        .select(['email', 'name', 'lastName', 'avatarUrl', 'systemRole'])
+        .lean();
+
+      return {
+        users: users.map((u) => {
+          const avatarRaw = u.avatarUrl;
+          return {
+            id: u._id.toString(),
+            email: u.email,
+            name: u.name,
+            lastName: u.lastName ?? '',
+            displayName: formatUserDisplayName(u),
+            avatarUrl:
+              typeof avatarRaw === 'string' && avatarRaw.trim().length > 0
+                ? avatarRaw.trim()
+                : null,
+            systemRole: resolveSystemRole(u as { systemRole?: string }),
+          };
+        }),
+      };
+    }),
+    updateUserProfile: adminProcedure
+      .input(
+        z.object({
+          userId: z.string().min(1),
+          name: z.string().min(1).max(80).trim(),
+          lastName: z.string().max(80).trim().optional(),
+          avatarUrl: z.union([z.string().url().max(2048), z.null()]).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (!Types.ObjectId.isValid(input.userId)) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Некорректный идентификатор пользователя',
+          });
+        }
+        const { userModel } = ctx.models;
+        const user = await userModel.findById(input.userId);
+        if (!user) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Пользователь не найден',
+          });
+        }
+        user.name = input.name;
+        if (input.lastName !== undefined) {
+          user.lastName =
+            input.lastName.length > 0 ? input.lastName : undefined;
+        }
+        if (input.avatarUrl !== undefined) {
+          if (input.avatarUrl === null) {
+            user.avatarUrl = undefined;
+          } else {
+            assertTrustedUserAvatarUrl(input.avatarUrl, input.userId);
+            user.avatarUrl = input.avatarUrl.trim();
+          }
+        }
+        await user.save();
+        return {
+          id: user._id.toString(),
+          email: user.email,
+          name: user.name,
+          lastName: user.lastName ?? '',
+          displayName: formatUserDisplayName(user),
+          avatarUrl:
+            typeof user.avatarUrl === 'string' &&
+            user.avatarUrl.trim().length > 0
+              ? user.avatarUrl.trim()
+              : null,
+          systemRole: resolveSystemRole(user),
+        };
+      }),
+    getSignedAvatarUploadUrlForUser: adminProcedure
+      .input(
+        z.object({
+          userId: z.string().min(1),
+          filename: z.string().min(1).max(200),
+          contentType: z.string().min(1).max(100),
+          size: z.number().int().nonnegative(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (!Types.ObjectId.isValid(input.userId)) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Некорректный идентификатор пользователя',
+          });
+        }
+        const { userModel } = ctx.models;
+        const exists = await userModel
+          .findById(input.userId)
+          .select('_id')
+          .lean();
+        if (!exists) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Пользователь не найден',
+          });
+        }
+        try {
+          return await signUserAvatarUpload({
+            userId: input.userId,
+            filename: input.filename,
+            contentType: input.contentType,
+            size: input.size,
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Не удалось подготовить загрузку аватара';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
+        }
+      }),
   }),
   trip: t.router({
     list: protectedProcedure.query(async ({ ctx }) => {
@@ -376,11 +636,11 @@ export const appRouter = t.router({
           memberObjectIds.length > 0
             ? await userModel
                 .find({ _id: { $in: memberObjectIds } })
-                .select(['name'])
+                .select(['name', 'lastName', 'email', 'avatarUrl'])
                 .lean()
             : [];
-        const nameByUserId = new Map(
-          users.map((user) => [user._id.toString(), user.name as string]),
+        const userById = new Map(
+          users.map((u) => [u._id.toString(), u] as const),
         );
 
         return {
@@ -402,11 +662,43 @@ export const appRouter = t.router({
             ? typedTrip.housingRequirements
             : [],
           viewerRole: viewerMembership.role,
-          members: trip.members.map((member) => ({
-            userId: member.userId.toString(),
-            role: member.role,
-            name: nameByUserId.get(member.userId.toString()) ?? 'Участник',
-          })),
+          members: trip.members.map((member) => {
+            const uid = member.userId.toString();
+            const doc = userById.get(uid) as
+              | {
+                  name?: string;
+                  lastName?: string;
+                  email?: string;
+                  avatarUrl?: string;
+                }
+              | undefined;
+            const firstName =
+              typeof doc?.name === 'string' && doc.name.trim()
+                ? doc.name.trim()
+                : 'Участник';
+            const lastName =
+              typeof doc?.lastName === 'string' ? doc.lastName.trim() : '';
+            const email =
+              typeof doc?.email === 'string' ? doc.email.trim() : '';
+            const avatarRaw = doc?.avatarUrl;
+            const avatarUrl =
+              typeof avatarRaw === 'string' && avatarRaw.trim().length > 0
+                ? avatarRaw.trim()
+                : null;
+
+            return {
+              userId: uid,
+              role: member.role,
+              firstName,
+              lastName,
+              email,
+              avatarUrl,
+              displayName:
+                lastName.length > 0
+                  ? `${firstName} ${lastName}`.trim()
+                  : firstName,
+            };
+          }),
         };
       }),
     /** Публичный контекст для страницы жилья: расчёт ночей/«за человека» и право редактировать */
@@ -715,6 +1007,75 @@ export const appRouter = t.router({
           });
         }
       }),
+    enrichFromGeminiHtml: protectedProcedure
+      .input(
+        z.object({
+          html: z
+            .string()
+            .min(MIN_PASTED_LISTING_HTML_CHARS)
+            .max(MAX_PASTED_LISTING_HTML_CHARS),
+          pageUrl: z.string().url().max(2048).optional(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        try {
+          return await enrichAccommodationFromPastedHtml(
+            input.html,
+            input.pageUrl,
+          );
+        } catch (error) {
+          const rawMessage =
+            error instanceof Error ? error.message : String(error);
+          if (rawMessage.includes('GEMINI_API_KEY')) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message:
+                'На сервере не настроен GEMINI_API_KEY. Добавьте ключ API Google AI.',
+            });
+          }
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message:
+              rawMessage ||
+              'Не удалось разобрать HTML через Gemini. Проверьте объём текста и URL страницы для картинок.',
+          });
+        }
+      }),
+    galleryZonesFromGeminiHtml: protectedProcedure
+      .input(
+        z.object({
+          html: z
+            .string()
+            .min(MIN_PASTED_LISTING_HTML_CHARS)
+            .max(MAX_PASTED_LISTING_HTML_CHARS),
+          pageUrl: z.string().url().max(2048).optional(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const images = await parseGalleryZonesFromPastedHtml(
+            input.html,
+            input.pageUrl,
+          );
+          return { images };
+        } catch (error) {
+          const rawMessage =
+            error instanceof Error ? error.message : String(error);
+          if (rawMessage.includes('GEMINI_API_KEY')) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message:
+                'На сервере не настроен GEMINI_API_KEY. Добавьте ключ API Google AI.',
+            });
+          }
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message:
+              rawMessage ||
+              'Не удалось извлечь фото из HTML. Укажите URL страницы и фрагмент с галереей.',
+          });
+        }
+      }),
     list: publicProcedure
       .input(
         z.object({
@@ -775,11 +1136,17 @@ export const appRouter = t.router({
                 .find({
                   _id: { $in: voterIds.map((id) => new Types.ObjectId(id)) },
                 })
-                .select(['name'])
+                .select(['name', 'lastName'])
                 .lean()
             : [];
         const voterNameById = new Map(
-          voterUsers.map((u) => [u._id.toString(), (u.name as string) ?? '']),
+          voterUsers.map((u) => [
+            u._id.toString(),
+            formatUserDisplayName({
+              name: u.name as string,
+              lastName: u.lastName as string | undefined,
+            }),
+          ]),
         );
 
         return options.map((item) => {
@@ -824,7 +1191,7 @@ export const appRouter = t.router({
             noLongerAvailable: item.noLongerAvailable === true,
             notes: item.notes ?? '',
             previewDescription: item.previewDescription ?? '',
-            previewImages: item.previewImages ?? [],
+            previewImages: normalizePreviewImageItems(item.previewImages ?? []),
             createdBy: item.createdBy.toString(),
             upVotes,
             downVotes,
@@ -862,7 +1229,7 @@ export const appRouter = t.router({
           amenities: input.amenities,
           notes: input.notes,
           previewDescription: input.previewDescription,
-          previewImages: input.previewImages ?? [],
+          previewImages: normalizePreviewImageItems(input.previewImages ?? []),
           createdBy: new Types.ObjectId(ctx.authUser.sub),
           status: 'shortlisted',
           noLongerAvailable: false,
@@ -901,7 +1268,9 @@ export const appRouter = t.router({
         option.amenities = input.amenities;
         option.notes = input.notes;
         option.previewDescription = input.previewDescription;
-        option.previewImages = input.previewImages ?? [];
+        option.previewImages = normalizePreviewImageItems(
+          input.previewImages ?? [],
+        );
         await option.save();
 
         return { success: true as const, id: option._id.toString() };
@@ -1041,31 +1410,57 @@ export const appRouter = t.router({
                 .find({
                   _id: { $in: userIds.map((id) => new Types.ObjectId(id)) },
                 })
-                .select(['name'])
+                .select(['name', 'lastName', 'avatarUrl'])
                 .lean()
             : [];
 
-        const nameById = new Map(users.map((u) => [u._id.toString(), u.name]));
+        const authorById = new Map(
+          users.map((u) => {
+            const uid = u._id.toString();
+            const avatarRaw = (u as { avatarUrl?: string }).avatarUrl;
+            const authorAvatarUrl =
+              typeof avatarRaw === 'string' && avatarRaw.trim().length > 0
+                ? avatarRaw.trim()
+                : null;
+            return [
+              uid,
+              {
+                authorName: formatUserDisplayName({
+                  name: u.name as string,
+                  lastName: u.lastName as string | undefined,
+                }),
+                authorAvatarUrl,
+              },
+            ] as const;
+          }),
+        );
 
         type Row = {
           id: string;
           body: string;
           authorId: string;
           authorName: string;
+          authorAvatarUrl: string | null;
           createdAt: string;
           canDelete: boolean;
         };
 
         const byOption: Record<string, Row[]> = {};
         const selfId = ctx.authUser?.sub;
+        const fallbackAuthor = {
+          authorName: 'Участник',
+          authorAvatarUrl: null as string | null,
+        };
 
         for (const c of comments) {
           const oid = c.accommodationId.toString();
+          const author = authorById.get(c.userId.toString()) ?? fallbackAuthor;
           const row: Row = {
             id: c._id.toString(),
             body: c.body,
             authorId: c.userId.toString(),
-            authorName: nameById.get(c.userId.toString()) ?? 'Участник',
+            authorName: author.authorName,
+            authorAvatarUrl: author.authorAvatarUrl,
             createdAt: (() => {
               const at = (c as { createdAt?: Date }).createdAt;
               return at instanceof Date
@@ -1417,11 +1812,17 @@ export const appRouter = t.router({
                 .find({
                   _id: { $in: payerIds.map((id) => new Types.ObjectId(id)) },
                 })
-                .select(['name'])
+                .select(['name', 'lastName'])
                 .lean()
             : [];
         const paidByName = new Map(
-          payers.map((u) => [u._id.toString(), (u.name as string) ?? '']),
+          payers.map((u) => [
+            u._id.toString(),
+            formatUserDisplayName({
+              name: u.name as string,
+              lastName: u.lastName as string | undefined,
+            }),
+          ]),
         );
 
         return receipts.map((r) => {
@@ -1482,12 +1883,18 @@ export const appRouter = t.router({
           memberObjectIds.length > 0
             ? await userModel
                 .find({ _id: { $in: memberObjectIds } })
-                .select(['name'])
+                .select(['name', 'lastName'])
                 .lean()
             : [];
 
         const nameByUserId = new Map(
-          users.map((u) => [u._id.toString(), (u.name as string) ?? '']),
+          users.map((u) => [
+            u._id.toString(),
+            formatUserDisplayName({
+              name: u.name as string,
+              lastName: u.lastName as string | undefined,
+            }),
+          ]),
         );
 
         const lineItemsRaw = Array.isArray(rec.lineItems) ? rec.lineItems : [];
@@ -2070,6 +2477,30 @@ export const appRouter = t.router({
             error instanceof Error
               ? error.message
               : 'Не удалось подготовить загрузку изображения';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
+        }
+      }),
+    getSignedAvatarUploadUrl: protectedProcedure
+      .input(
+        z.object({
+          filename: z.string().min(1).max(200),
+          contentType: z.string().min(1).max(100),
+          size: z.number().int().nonnegative(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await signUserAvatarUpload({
+            userId: ctx.authUser.sub,
+            filename: input.filename,
+            contentType: input.contentType,
+            size: input.size,
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Не удалось подготовить загрузку аватара';
           throw new TRPCError({ code: 'BAD_REQUEST', message });
         }
       }),

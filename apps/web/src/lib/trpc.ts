@@ -1,6 +1,25 @@
-import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
+import {
+  createTRPCProxyClient,
+  httpBatchLink,
+  httpLink,
+  splitLink,
+} from "@trpc/client";
 import superjson from "superjson";
 import { getAuthToken } from "./auth-token";
+
+/** Элемент галереи карточки жилья (синхронно с accommodation-preview-images на API). */
+export type AccommodationPreviewImage = { url: string; zone?: string };
+
+/** Профиль пользователя (auth.me / после входа). */
+export type AuthUserProfile = {
+  id: string;
+  email: string;
+  name: string;
+  lastName: string;
+  displayName: string;
+  avatarUrl: string | null;
+  systemRole: "user" | "admin";
+};
 
 export type ApiClient = {
   auth: {
@@ -11,16 +30,72 @@ export type ApiClient = {
         password: string;
       }): Promise<{
         token: string;
-        user: { id: string; email: string; name: string };
+        user: AuthUserProfile;
       }>;
     };
     login: {
       mutate(input: { email: string; password: string }): Promise<{
         token: string;
-        user: { id: string; email: string; name: string };
+        user: AuthUserProfile;
       }>;
     };
-    me: { query(): Promise<{ id: string; email: string; name: string }> };
+    me: { query(): Promise<AuthUserProfile> };
+    updateProfile: {
+      mutate(input: {
+        name: string;
+        lastName?: string;
+        avatarUrl?: string | null;
+      }): Promise<AuthUserProfile>;
+    };
+    changePassword: {
+      mutate(input: {
+        currentPassword: string;
+        newPassword: string;
+      }): Promise<{ success: true }>;
+    };
+  };
+  admin: {
+    listUsers: {
+      query(): Promise<{
+        users: {
+          id: string;
+          email: string;
+          name: string;
+          lastName: string;
+          displayName: string;
+          avatarUrl: string | null;
+          systemRole: "user" | "admin";
+        }[];
+      }>;
+    };
+    updateUserProfile: {
+      mutate(input: {
+        userId: string;
+        name: string;
+        lastName?: string;
+        avatarUrl?: string | null;
+      }): Promise<{
+        id: string;
+        email: string;
+        name: string;
+        lastName: string;
+        displayName: string;
+        avatarUrl: string | null;
+        systemRole: "user" | "admin";
+      }>;
+    };
+    getSignedAvatarUploadUrlForUser: {
+      mutate(input: {
+        userId: string;
+        filename: string;
+        contentType: string;
+        size: number;
+      }): Promise<{
+        uploadUrl: string;
+        objectKey: string;
+        publicUrl: string;
+      }>;
+    };
   };
   trip: {
     list: {
@@ -61,7 +136,11 @@ export type ApiClient = {
         members: {
           userId: string;
           role: "owner" | "member";
-          name: string;
+          firstName: string;
+          lastName: string;
+          email: string;
+          avatarUrl: string | null;
+          displayName: string;
         }[];
       }>;
     };
@@ -138,7 +217,7 @@ export type ApiClient = {
           noLongerAvailable: boolean;
           notes: string;
           previewDescription: string;
-          previewImages: string[];
+          previewImages: AccommodationPreviewImage[];
           createdBy: string;
           upVotes: number;
           downVotes: number;
@@ -167,7 +246,7 @@ export type ApiClient = {
         amenities?: string[];
         notes?: string;
         previewDescription?: string;
-        previewImages?: string[];
+        previewImages?: AccommodationPreviewImage[];
       }): Promise<{ id: string; title: string }>;
     };
     update: {
@@ -186,7 +265,7 @@ export type ApiClient = {
         amenities?: string[];
         notes?: string;
         previewDescription?: string;
-        previewImages?: string[];
+        previewImages?: AccommodationPreviewImage[];
       }): Promise<{ success: boolean; id: string }>;
     };
     delete: {
@@ -218,6 +297,30 @@ export type ApiClient = {
         notes?: string;
         previewDescription: string;
         previewImages: string[];
+      }>;
+    };
+    enrichFromGeminiHtml: {
+      mutate(input: { html: string; pageUrl?: string }): Promise<{
+        canonicalUrl: string;
+        title: string;
+        provider: string;
+        sourceUrl?: string;
+        locationLabel?: string;
+        coordinates?: { lat: number; lng: number };
+        price?: number;
+        pricingMode: "total" | "perNight" | "perPerson";
+        currency: string;
+        rating?: number;
+        freeCancellation: boolean;
+        amenities: string[];
+        notes?: string;
+        previewDescription: string;
+        previewImages: string[];
+      }>;
+    };
+    galleryZonesFromGeminiHtml: {
+      mutate(input: { html: string; pageUrl?: string }): Promise<{
+        images: AccommodationPreviewImage[];
       }>;
     };
     geocodeByQuery: {
@@ -256,6 +359,7 @@ export type ApiClient = {
             body: string;
             authorId: string;
             authorName: string;
+            authorAvatarUrl: string | null;
             createdAt: string;
             canDelete: boolean;
           }[]
@@ -477,6 +581,17 @@ export type ApiClient = {
         publicUrl: string;
       }>;
     };
+    getSignedAvatarUploadUrl: {
+      mutate(input: {
+        filename: string;
+        contentType: string;
+        size: number;
+      }): Promise<{
+        uploadUrl: string;
+        objectKey: string;
+        publicUrl: string;
+      }>;
+    };
     getSignedDocumentUploadUrl: {
       mutate(input: {
         tripId: string;
@@ -510,15 +625,23 @@ function getApiUrl() {
 }
 
 export function makeTrpcClient() {
+  const shared = {
+    url: `${getApiUrl()}/trpc`,
+    transformer: superjson,
+    headers() {
+      const token = getAuthToken();
+      return token ? { authorization: `Bearer ${token}` } : {};
+    },
+  } as const;
+
   const client = createTRPCProxyClient({
     links: [
-      httpBatchLink({
-        url: `${getApiUrl()}/trpc`,
-        transformer: superjson,
-        headers() {
-          const token = getAuthToken();
-          return token ? { authorization: `Bearer ${token}` } : {};
+      splitLink({
+        condition(op) {
+          return op.type === "mutation";
         },
+        true: httpLink(shared),
+        false: httpBatchLink(shared),
       }),
     ],
   });

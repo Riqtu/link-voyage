@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type AccommodationDocument = HydratedDocument<Accommodation>;
 
@@ -75,9 +75,16 @@ export class Accommodation {
   @Prop({ trim: true })
   previewDescription?: string;
 
-  /** URL изображений с превью (og:image и т.п.), до нескольких штук */
-  @Prop({ type: [String], default: [] })
-  previewImages!: string[];
+  /**
+   * Фото карточки: `{ url }` или `{ url, zone? }` (зона типа «Спальня 1»).
+   * В старых записях могли быть только строки-URL — нормализуем при чтении/save на уровне API.
+   */
+  @Prop({
+    required: false,
+    default: [],
+    type: [MongooseSchema.Types.Mixed],
+  })
+  previewImages!: unknown[];
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy!: Types.ObjectId;

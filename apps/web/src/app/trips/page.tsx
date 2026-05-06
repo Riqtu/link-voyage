@@ -3,6 +3,7 @@
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { clearAuthToken, getAuthToken } from "@/lib/auth-token";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
@@ -22,6 +23,7 @@ export default function TripsPage() {
   const [peopleCount, setPeopleCount] = useState("4");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const loadTrips = useCallback(async () => {
     if (!getAuthToken()) {
@@ -45,6 +47,18 @@ export default function TripsPage() {
     }
   }, [router]);
 
+  const resetCreateForm = useCallback(() => {
+    setTitle("");
+    setDescription("");
+    setPeopleCount("4");
+    setError(null);
+  }, []);
+
+  const closeCreateModal = useCallback(() => {
+    setIsCreateModalOpen(false);
+    resetCreateForm();
+  }, [resetCreateForm]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadTrips();
@@ -52,6 +66,18 @@ export default function TripsPage() {
 
     return () => window.clearTimeout(timer);
   }, [loadTrips]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeCreateModal();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isCreateModalOpen, closeCreateModal]);
 
   async function onCreateTrip(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,9 +90,7 @@ export default function TripsPage() {
         description,
         peopleCount: Number.isFinite(p) && p >= 1 && p <= 99 ? p : undefined,
       });
-      setTitle("");
-      setDescription("");
-      setPeopleCount("4");
+      closeCreateModal();
       await loadTrips();
     } catch (createError) {
       setError(
@@ -79,70 +103,109 @@ export default function TripsPage() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold">Мои поездки</h1>
           <p className="text-sm text-muted-foreground">
             Создавайте поездки, приглашайте друзей и собирайте общий план.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link className={buttonVariants({ variant: "outline" })} href="/">
-            Главная
-          </Link>
-          <Button
-            variant="outline"
-            onClick={() => {
-              clearAuthToken();
-              router.push("/auth");
-            }}
-          >
-            Выйти
-          </Button>
-        </div>
+        <Button
+          type="button"
+          className="self-start sm:self-auto"
+          onClick={() => setIsCreateModalOpen(true)}
+        >
+          <Plus className="mr-1.5 size-4" aria-hidden />
+          Новая поездка
+        </Button>
       </div>
 
-      <form
-        onSubmit={onCreateTrip}
-        className="mb-6 rounded-2xl border bg-card p-5 shadow-sm"
-      >
-        <h2 className="text-lg font-medium">Новая поездка</h2>
-        <div className="mt-3 space-y-3">
-          <input
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
-            placeholder="Название поездки"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            required
-          />
-          <textarea
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
-            placeholder="Короткое описание (необязательно)"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            rows={3}
-          />
-          <input
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
-            placeholder="Количество человек (для цены за человека)"
-            type="number"
-            min={1}
-            max={99}
-            value={peopleCount}
-            onChange={(event) => setPeopleCount(event.target.value)}
-          />
-          <Button type="submit">Создать поездку</Button>
+      {isCreateModalOpen ? (
+        <div
+          className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4"
+          onClick={closeCreateModal}
+          role="presentation"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-trip-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="create-trip-modal-title" className="text-lg font-medium">
+                Новая поездка
+              </h2>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeCreateModal}
+              >
+                Закрыть
+              </Button>
+            </div>
+            <form onSubmit={onCreateTrip} className="mt-4 space-y-3">
+              {error ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <input
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                placeholder="Название поездки"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                required
+                autoFocus
+              />
+              <textarea
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                placeholder="Короткое описание (необязательно)"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={3}
+              />
+              <input
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                placeholder="Количество человек (для цены за человека)"
+                type="number"
+                min={1}
+                max={99}
+                value={peopleCount}
+                onChange={(event) => setPeopleCount(event.target.value)}
+              />
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button type="submit">Создать поездку</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeCreateModal}
+                >
+                  Отмена
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
-      </form>
-
-      {error ? <p className="mb-3 text-sm text-destructive">{error}</p> : null}
+      ) : null}
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Загружаем поездки...</p>
       ) : trips.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Пока нет поездок. Создайте первую.
-        </p>
+        <div className="rounded-2xl border border-dashed bg-muted/25 px-6 py-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Пока нет поездок. Создайте первую через кнопку «Новая поездка».
+          </p>
+          <Button
+            type="button"
+            className="mt-4"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus className="mr-1.5 size-4" aria-hidden />
+            Новая поездка
+          </Button>
+        </div>
       ) : (
         <div className="grid gap-3">
           {trips.map((trip) => (

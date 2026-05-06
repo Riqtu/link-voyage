@@ -95,7 +95,7 @@ export function TripMap(props: {
         width: "100%",
         borderRadius: "0.75rem",
       }}
-      options={{ mapId }}
+      options={{ mapId, mapTypeControl: false }}
       onLoad={(map) => {
         setMap(map);
       }}

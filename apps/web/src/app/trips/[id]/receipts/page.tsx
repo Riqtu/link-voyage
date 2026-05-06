@@ -222,7 +222,7 @@ export default function TripReceiptsListPage() {
                 >
                   {trip?.members.map((m) => (
                     <option key={m.userId} value={m.userId}>
-                      {m.name}
+                      {m.displayName}
                     </option>
                   ))}
                 </select>
