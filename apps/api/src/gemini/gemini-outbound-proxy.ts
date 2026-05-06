@@ -13,14 +13,14 @@ export function geminiOutboundProxyUrl(): string | undefined {
 }
 
 function buildProxyFetch(agent: ProxyAgent): typeof globalThis.fetch {
-  return (async (
+  return async (
     input: Parameters<typeof globalThis.fetch>[0],
     init?: RequestInit,
   ): Promise<Response> =>
     undiciFetch(input as Parameters<typeof undiciFetch>[0], {
       ...(init as Parameters<typeof undiciFetch>[1]),
       dispatcher: agent,
-    }) as unknown as Promise<Response>) as unknown as typeof globalThis.fetch;
+    }) as unknown as Promise<Response>;
 }
 
 /** Исходящий HTTP(S)-прокси (CONNECT), например VPS в регионе, где Gemini API разрешён. */
@@ -59,7 +59,7 @@ export function runGeminiThroughOptionalProxy<T>(
     } finally {
       globalThis.fetch = prevFetch;
     }
-  }) as Promise<T>;
+  });
 
   geminiOutboundChain = deferred.then(
     () => undefined,

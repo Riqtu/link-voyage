@@ -6,24 +6,24 @@ import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
 import { cn } from "@/lib/utils";
 import {
-    ChevronLeft,
-    ChevronRight,
-    MapPin,
-    Pencil,
-    Trash2,
-    X,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Pencil,
+  Trash2,
+  X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-    FormEvent,
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
 } from "react";
 
 type Option = Awaited<
@@ -154,6 +154,9 @@ export default function AccommodationsPage() {
   const [commentModalOptionId, setCommentModalOptionId] = useState<
     string | null
   >(null);
+  const [voteModalOptionId, setVoteModalOptionId] = useState<string | null>(
+    null,
+  );
   const [commentModalDraft, setCommentModalDraft] = useState("");
   const [commentModalBusy, setCommentModalBusy] = useState(false);
   /** Участник поездки и с токеном — может менять жильё и комментировать */
@@ -161,6 +164,8 @@ export default function AccommodationsPage() {
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const mapSectionRef = useRef<HTMLElement | null>(null);
   const mapFocusNonceRef = useRef(0);
+  const galleryPointerStartXRef = useRef<number | null>(null);
+  const galleryPointerStartYRef = useRef<number | null>(null);
   const [mapFocusRequest, setMapFocusRequest] = useState<{
     id: string;
     nonce: number;
@@ -205,6 +210,22 @@ export default function AccommodationsPage() {
   function closeGallery() {
     setGalleryImages([]);
     setGalleryIndex(0);
+  }
+
+  function showPrevGalleryImage() {
+    setGalleryIndex((idx) => Math.max(0, idx - 1));
+  }
+
+  function showNextGalleryImage() {
+    setGalleryIndex((idx) => Math.min(galleryImages.length - 1, idx + 1));
+  }
+
+  function openVoteModal(optionId: string) {
+    setVoteModalOptionId(optionId);
+  }
+
+  function closeVoteModal() {
+    setVoteModalOptionId(null);
   }
 
   const loadAccommodationsPageContext = useCallback(async () => {
@@ -1050,10 +1071,25 @@ export default function AccommodationsPage() {
                     </div>
                   </div>
 
-                  <div className="text-right text-xs text-muted-foreground">
-                    <div>Баланс: {item.upVotes - item.downVotes}</div>
+                  <div className="flex w-full flex-wrap items-center gap-2 text-xs sm:w-auto sm:justify-end">
+                    <button
+                      type="button"
+                      className="rounded-full border px-2 py-0.5 text-foreground/90 transition hover:bg-muted"
+                      onClick={() => openVoteModal(item.id)}
+                      title="Посмотреть, кто как проголосовал"
+                    >
+                      Голоса:{" "}
+                      <span className="font-medium tabular-nums">
+                        {item.upVotes - item.downVotes}
+                      </span>
+                    </button>
                     {item.rating !== null ? (
-                      <div className="mt-1">Рейтинг: {item.rating}</div>
+                      <span className="rounded-full border px-2 py-0.5 text-foreground/90">
+                        Рейтинг:{" "}
+                        <span className="font-medium tabular-nums">
+                          {item.rating}
+                        </span>
+                      </span>
                     ) : null}
                   </div>
                 </div>
@@ -1237,10 +1273,14 @@ export default function AccommodationsPage() {
                     <Button
                       size="sm"
                       className="w-full"
-                      variant={item.status === "booked" ? "secondary" : "default"}
+                      variant={
+                        item.status === "booked" ? "secondary" : "default"
+                      }
                       onClick={() => void toggleBooked(item)}
                     >
-                      {item.status === "booked" ? "Снять бронь" : "Забронировать"}
+                      {item.status === "booked"
+                        ? "Снять бронь"
+                        : "Забронировать"}
                     </Button>
                   ) : null}
 
@@ -1293,7 +1333,11 @@ export default function AccommodationsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="w-full"
+                            className={cn(
+                              "w-full",
+                              item.userVote === "up" &&
+                                "border-emerald-500/80 bg-emerald-500/25 text-emerald-900 ring-1 ring-emerald-500/40 hover:bg-emerald-500/30 dark:text-emerald-300",
+                            )}
                             aria-label="Лайкнуть вариант"
                             onClick={() => void onVote(item.id, "up")}
                           >
@@ -1302,7 +1346,11 @@ export default function AccommodationsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="w-full"
+                            className={cn(
+                              "w-full",
+                              item.userVote === "down" &&
+                                "border-red-500/80 bg-red-500/25 text-red-900 ring-1 ring-red-500/40 hover:bg-red-500/30 dark:text-red-300",
+                            )}
                             aria-label="Дизлайкнуть вариант"
                             onClick={() => void onVote(item.id, "down")}
                           >
@@ -1478,16 +1526,31 @@ export default function AccommodationsPage() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="grid items-center gap-2 md:grid-cols-[40px_1fr_40px]">
-              <Button
-                size="icon"
-                variant="outline"
-                disabled={galleryIndex <= 0}
-                onClick={() => setGalleryIndex((idx) => Math.max(0, idx - 1))}
+            <div className="relative">
+              <div
+                className="touch-pan-y flex justify-center overflow-hidden rounded-lg border bg-black"
+                onPointerDown={(e) => {
+                  if (e.pointerType !== "touch") return;
+                  galleryPointerStartXRef.current = e.clientX;
+                  galleryPointerStartYRef.current = e.clientY;
+                }}
+                onPointerUp={(e) => {
+                  if (e.pointerType !== "touch") return;
+                  const startX = galleryPointerStartXRef.current;
+                  const startY = galleryPointerStartYRef.current;
+                  galleryPointerStartXRef.current = null;
+                  galleryPointerStartYRef.current = null;
+                  if (startX === null || startY === null) return;
+                  const dx = e.clientX - startX;
+                  const dy = e.clientY - startY;
+                  if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+                  if (dx < 0) {
+                    showNextGalleryImage();
+                  } else {
+                    showPrevGalleryImage();
+                  }
+                }}
               >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex justify-center overflow-hidden rounded-lg border bg-black">
                 {/* eslint-disable-next-line @next/next/no-img-element -- внешние URL превью без white-list в next/image */}
                 <img
                   src={galleryImages[galleryIndex]}
@@ -1499,17 +1562,95 @@ export default function AccommodationsPage() {
               <Button
                 size="icon"
                 variant="outline"
+                className="absolute top-1/2 left-2 z-10 -translate-y-1/2"
+                disabled={galleryIndex <= 0}
+                onClick={showPrevGalleryImage}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="absolute top-1/2 right-2 z-10 -translate-y-1/2"
                 disabled={galleryIndex >= galleryImages.length - 1}
-                onClick={() =>
-                  setGalleryIndex((idx) =>
-                    Math.min(galleryImages.length - 1, idx + 1),
-                  )
-                }
+                onClick={showNextGalleryImage}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {voteModalOptionId !== null ? (
+        <div className="fixed inset-0 z-[2060] flex items-center justify-center bg-black/50 p-4">
+          {(() => {
+            const selected = options.find((o) => o.id === voteModalOptionId);
+            const upVoters =
+              selected?.votes.filter((v) => v.value === "up") ?? [];
+            const downVoters =
+              selected?.votes.filter((v) => v.value === "down") ?? [];
+            return (
+              <div className="flex w-full max-w-lg flex-col rounded-2xl border bg-background p-5 shadow-2xl">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-medium">Голоса по варианту</h2>
+                    <p className="mt-1 truncate text-sm text-muted-foreground">
+                      {selected?.title ?? "Вариант жилья"}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={closeVoteModal}
+                  >
+                    Закрыть
+                  </Button>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-emerald-600/30 bg-emerald-600/5 p-3">
+                    <div className="text-sm font-medium text-emerald-700 dark:text-emerald-500">
+                      За ({upVoters.length})
+                    </div>
+                    {upVoters.length === 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Пока нет голосов.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-1 text-sm">
+                        {upVoters.map((v) => (
+                          <li key={`${v.userId}-up`} className="truncate">
+                            {v.userName}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                    <div className="text-sm font-medium text-destructive">
+                      Против ({downVoters.length})
+                    </div>
+                    {downVoters.length === 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Пока нет голосов.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 space-y-1 text-sm">
+                        {downVoters.map((v) => (
+                          <li key={`${v.userId}-down`} className="truncate">
+                            {v.userName}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       ) : null}
 

@@ -4,24 +4,24 @@ import { randomBytes } from 'node:crypto';
 import superjson from 'superjson';
 import { z } from 'zod';
 import {
-    hashPassword,
-    signAccessToken,
-    verifyPassword,
+  hashPassword,
+  signAccessToken,
+  verifyPassword,
 } from '../auth/auth.utils';
 import { getUsdRubRateFromCbr } from '../forex/cbr-usd-rub';
 import {
-    analyzeReceiptImageFromUrl,
-    assertTrustedReceiptImageUrl,
+  analyzeReceiptImageFromUrl,
+  assertTrustedReceiptImageUrl,
 } from '../gemini/analyze-receipt-image';
 import { enrichAccommodationFromUrl } from '../gemini/enrich-accommodation-from-url';
 import { fetchLinkPreview } from '../link-preview/link-preview';
 import {
-    assertDocumentObjectKeyForTrip,
-    buildPublicDocumentUrl,
-    deleteDocumentObject,
-    signDocumentUpload,
-    signImageUpload,
-    signReceiptImageUpload,
+  assertDocumentObjectKeyForTrip,
+  buildPublicDocumentUrl,
+  deleteDocumentObject,
+  signDocumentUpload,
+  signImageUpload,
+  signReceiptImageUpload,
 } from '../s3';
 import { TrpcContext } from './trpc.context';
 
@@ -727,7 +727,7 @@ export const appRouter = t.router({
         }),
       )
       .query(async ({ ctx, input }) => {
-        const { tripModel, accommodationModel } = ctx.models;
+        const { tripModel, accommodationModel, userModel } = ctx.models;
         await assertTripExists(input.tripId, tripModel);
 
         const selfId = ctx.authUser?.sub;
@@ -761,6 +761,26 @@ export const appRouter = t.router({
           // Stable ordering: keep cards in creation order so edits do not "jump" items.
           .sort({ createdAt: -1, _id: -1 })
           .lean();
+
+        const voterIds = [
+          ...new Set(
+            options.flatMap((item) =>
+              item.votes.map((vote) => vote.userId.toString()),
+            ),
+          ),
+        ];
+        const voterUsers =
+          voterIds.length > 0
+            ? await userModel
+                .find({
+                  _id: { $in: voterIds.map((id) => new Types.ObjectId(id)) },
+                })
+                .select(['name'])
+                .lean()
+            : [];
+        const voterNameById = new Map(
+          voterUsers.map((u) => [u._id.toString(), (u.name as string) ?? '']),
+        );
 
         return options.map((item) => {
           const legacy = item as typeof item & { pricePerNight?: number };
@@ -808,6 +828,11 @@ export const appRouter = t.router({
             createdBy: item.createdBy.toString(),
             upVotes,
             downVotes,
+            votes: item.votes.map((vote) => ({
+              userId: vote.userId.toString(),
+              userName: voterNameById.get(vote.userId.toString()) ?? 'Участник',
+              value: vote.value,
+            })),
             userVote:
               selfId !== undefined
                 ? (item.votes.find((vote) => vote.userId.toString() === selfId)
@@ -976,11 +1001,18 @@ export const appRouter = t.router({
           tripModel,
         );
 
-        const existingVote = option.votes.find(
+        const existingVoteIndex = option.votes.findIndex(
           (vote) => vote.userId.toString() === ctx.authUser.sub,
         );
+        const existingVote =
+          existingVoteIndex >= 0 ? option.votes[existingVoteIndex] : undefined;
         if (existingVote) {
-          existingVote.value = input.value;
+          if (existingVote.value === input.value) {
+            // Повторный клик по тому же голосу = снять голос
+            option.votes.splice(existingVoteIndex, 1);
+          } else {
+            existingVote.value = input.value;
+          }
         } else {
           option.votes.push({
             userId: new Types.ObjectId(ctx.authUser.sub),

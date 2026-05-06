@@ -142,6 +142,11 @@ export type ApiClient = {
           createdBy: string;
           upVotes: number;
           downVotes: number;
+          votes: {
+            userId: string;
+            userName: string;
+            value: "up" | "down";
+          }[];
           userVote: "up" | "down" | null;
         }[]
       >;

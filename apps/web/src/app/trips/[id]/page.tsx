@@ -519,9 +519,9 @@ export default function TripDetailsPage() {
           <div className="mt-6">
             <Button onClick={createInvite}>Создать ссылку-приглашение</Button>
             {inviteUrl ? (
-              <p className="mt-3 text-sm text-muted-foreground">
+              <p className="mt-3 min-w-0 text-sm text-muted-foreground">
                 Ссылка скопирована:{" "}
-                <a className="underline" href={inviteUrl}>
+                <a className="underline break-all" href={inviteUrl}>
                   {inviteUrl}
                 </a>
               </p>

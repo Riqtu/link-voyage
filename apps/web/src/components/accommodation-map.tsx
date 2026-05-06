@@ -101,7 +101,7 @@ export function AccommodationMap(props: {
   const { isLoaded, loadError } = useJsApiLoader({
     id: GOOGLE_MAPS_JS_LOADER_ID,
     googleMapsApiKey: apiKey ?? "",
-    libraries: [...GOOGLE_MAP_MARKER_LIBRARY],
+    libraries: GOOGLE_MAP_MARKER_LIBRARY,
   });
 
   const coords = useMemo(
