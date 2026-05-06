@@ -27,6 +27,52 @@ export class TripInvite {
   used!: boolean;
 }
 
+@Schema()
+export class TripPackChecklistItem {
+  _id!: Types.ObjectId;
+
+  /** Обычная строка с чекбоксом или секция-заголовок с подпунктами */
+  @Prop({ type: String, enum: ['line', 'group'], default: 'line' })
+  kind!: 'line' | 'group';
+
+  /** Для строки: родительская секция (kind=group) */
+  @Prop({ type: Types.ObjectId, required: false })
+  parentItemId?: Types.ObjectId;
+
+  @Prop({ required: true, trim: true, maxlength: 200 })
+  title!: string;
+
+  @Prop({ default: false })
+  done!: boolean;
+
+  @Prop({ type: Number, default: 0 })
+  sortOrder!: number;
+
+  /** Количество (только для kind=line) */
+  @Prop({ type: Number, required: false, min: 1, max: 99999 })
+  quantity?: number;
+
+  /** Краткая единица: шт, пар … */
+  @Prop({ trim: true, maxlength: 12 })
+  quantityUnit?: string;
+}
+
+export const TripPackChecklistItemSchema = SchemaFactory.createForClass(
+  TripPackChecklistItem,
+);
+
+@Schema({ _id: false })
+export class TripMemberPersonalPackChecklist {
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  userId!: Types.ObjectId;
+
+  @Prop({ type: [TripPackChecklistItemSchema], default: [] })
+  items!: TripPackChecklistItem[];
+}
+
+export const TripMemberPersonalPackChecklistSchema =
+  SchemaFactory.createForClass(TripMemberPersonalPackChecklist);
+
 @Schema({ timestamps: true })
 export class Trip {
   @Prop({ required: true, trim: true })
@@ -60,6 +106,19 @@ export class Trip {
   /** Требования к жилью (wifi, кухня, центр и т.п.) */
   @Prop({ type: [String], default: [] })
   housingRequirements!: string[];
+
+  /**
+   * Устаревшее общее поле: при первой выдаче каждому участнику копируется в личный чеклист.
+   */
+  @Prop({ type: [TripPackChecklistItemSchema], required: false })
+  packChecklist?: TripPackChecklistItem[];
+
+  /** Личный чеклист «что взять»: по одному на участника поездки. */
+  @Prop({
+    type: [TripMemberPersonalPackChecklistSchema],
+    default: [],
+  })
+  packChecklistsByMember!: TripMemberPersonalPackChecklist[];
 }
 
 export const TripSchema = SchemaFactory.createForClass(Trip);

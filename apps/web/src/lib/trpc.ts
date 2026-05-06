@@ -188,6 +188,173 @@ export type ApiClient = {
         userId: string;
       }): Promise<{ success: true }>;
     };
+    packChecklist: {
+      list: {
+        query(input: { tripId: string }): Promise<{
+          items: {
+            id: string;
+            kind: "line" | "group";
+            title: string;
+            done: boolean;
+            sortOrder: number;
+            parentItemId: string | null;
+            quantity: number | null;
+            quantityUnit: string | null;
+          }[];
+        }>;
+      };
+      addItem: {
+        mutate(input: {
+          tripId: string;
+          title: string;
+          kind?: "line" | "group";
+          parentItemId?: string;
+          quantity?: number | null;
+          quantityUnit?: string | null;
+        }): Promise<{
+          item: {
+            id: string;
+            kind: "line" | "group";
+            title: string;
+            done: boolean;
+            sortOrder: number;
+            parentItemId: string | null;
+            quantity: number | null;
+            quantityUnit: string | null;
+          };
+        }>;
+      };
+      updateItem: {
+        mutate(input: {
+          tripId: string;
+          itemId: string;
+          title?: string;
+          done?: boolean;
+          quantity?: number | null;
+          quantityUnit?: string | null;
+        }): Promise<{
+          item: {
+            id: string;
+            kind: "line" | "group";
+            title: string;
+            done: boolean;
+            sortOrder: number;
+            parentItemId: string | null;
+            quantity: number | null;
+            quantityUnit: string | null;
+          };
+        }>;
+      };
+      removeItem: {
+        mutate(input: {
+          tripId: string;
+          itemId: string;
+        }): Promise<{ success: true }>;
+      };
+      resetFromPreset: {
+        mutate(input: { tripId: string }): Promise<{
+          items: {
+            id: string;
+            kind: "line" | "group";
+            title: string;
+            done: boolean;
+            sortOrder: number;
+            parentItemId: string | null;
+            quantity: number | null;
+            quantityUnit: string | null;
+          }[];
+        }>;
+      };
+      moveItemRelative: {
+        mutate(input: {
+          tripId: string;
+          itemId: string;
+          direction: "up" | "down";
+        }): Promise<{
+          moved: boolean;
+          items: {
+            id: string;
+            kind: "line" | "group";
+            title: string;
+            done: boolean;
+            sortOrder: number;
+            parentItemId: string | null;
+            quantity: number | null;
+            quantityUnit: string | null;
+          }[];
+        }>;
+      };
+      reorderPeers: {
+        mutate(input: {
+          tripId: string;
+          parentSectionId?: string | null;
+          orderedItemIds: string[];
+        }): Promise<{
+          items: {
+            id: string;
+            kind: "line" | "group";
+            title: string;
+            done: boolean;
+            sortOrder: number;
+            parentItemId: string | null;
+            quantity: number | null;
+            quantityUnit: string | null;
+          }[];
+        }>;
+      };
+      bulkSetLinesDone: {
+        mutate(input: {
+          tripId: string;
+          done: boolean;
+          scope: "all_lines" | "section_lines";
+          sectionItemId?: string;
+        }): Promise<{
+          items: {
+            id: string;
+            kind: "line" | "group";
+            title: string;
+            done: boolean;
+            sortOrder: number;
+            parentItemId: string | null;
+            quantity: number | null;
+            quantityUnit: string | null;
+          }[];
+        }>;
+      };
+      restoreDeletedItemsBatch: {
+        mutate(input: {
+          tripId: string;
+          ordered: (
+            | {
+                kind: "group";
+                clientKey: string;
+                title: string;
+                done?: boolean;
+              }
+            | {
+                kind: "line";
+                clientKey: string;
+                parentClientKey?: string;
+                title: string;
+                done?: boolean;
+                quantity?: number | null;
+                quantityUnit?: string | null;
+              }
+          )[];
+        }): Promise<{
+          items: {
+            id: string;
+            kind: "line" | "group";
+            title: string;
+            done: boolean;
+            sortOrder: number;
+            parentItemId: string | null;
+            quantity: number | null;
+            quantityUnit: string | null;
+          }[];
+        }>;
+      };
+    };
   };
   accommodation: {
     list: {

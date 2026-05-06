@@ -199,3 +199,26 @@
     font-size: 16px !important;
   }
 }
+
+/* Пульс после «Строка» у секции — мягкая подсказка, куда вводить */
+@keyframes checklist-composer-ring {
+  0% {
+    box-shadow:
+      inset 0 0 0 1px transparent,
+      0 0 0 0 color-mix(in oklch, var(--primary) 40%, transparent);
+  }
+  35% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklch, var(--primary) 22%, transparent),
+      0 0 0 4px color-mix(in oklch, var(--primary) 18%, transparent);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 1px transparent,
+      0 0 0 0 transparent;
+  }
+}
+
+.checklist-composer-glow {
+  animation: checklist-composer-ring 2.1s ease-out 1 forwards;
+}
