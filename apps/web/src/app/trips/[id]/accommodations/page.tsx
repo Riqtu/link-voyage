@@ -6,24 +6,24 @@ import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
 import { cn } from "@/lib/utils";
 import {
-  ChevronLeft,
-  ChevronRight,
-  MapPin,
-  Pencil,
-  Trash2,
-  X,
+    ChevronLeft,
+    ChevronRight,
+    MapPin,
+    Pencil,
+    Trash2,
+    X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
+    FormEvent,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type ChangeEvent,
 } from "react";
 
 type Option = Awaited<
@@ -1232,23 +1232,35 @@ export default function AccommodationsPage() {
                   )}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-2">
+                <div className="mt-4 space-y-2.5">
+                  {canCollaborate ? (
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      variant={item.status === "booked" ? "secondary" : "default"}
+                      onClick={() => void toggleBooked(item)}
+                    >
+                      {item.status === "booked" ? "Снять бронь" : "Забронировать"}
+                    </Button>
+                  ) : null}
+
+                  <div className="grid grid-cols-2 gap-2">
                     <Button
                       size="sm"
                       variant={
                         selectedIds.includes(item.id) ? "default" : "outline"
                       }
+                      className="w-full"
                       onClick={() => toggleCompare(item.id)}
                     >
                       {selectedIds.includes(item.id)
-                        ? "В сравнение"
+                        ? "В сравнении"
                         : "Сравнить"}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="gap-1"
+                      className="w-full gap-1"
                       disabled={!item.coordinates}
                       title={
                         item.coordinates
@@ -1266,34 +1278,10 @@ export default function AccommodationsPage() {
                       <>
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => void onVote(item.id, "up")}
-                        >
-                          👍
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void onVote(item.id, "down")}
-                        >
-                          👎
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={
-                            item.status === "booked" ? "secondary" : "default"
-                          }
-                          onClick={() => void toggleBooked(item)}
-                        >
-                          {item.status === "booked"
-                            ? "Снять бронь"
-                            : "Забронировать"}
-                        </Button>
-                        <Button
-                          size="sm"
                           variant={
                             item.noLongerAvailable ? "secondary" : "outline"
                           }
+                          className="w-full"
                           title="Если объект уже снят другими — приглушаем карточку для команды"
                           onClick={() => void toggleNoLongerAvailable(item)}
                         >
@@ -1301,11 +1289,32 @@ export default function AccommodationsPage() {
                             ? "Снова доступно"
                             : "Занято у других"}
                         </Button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            aria-label="Лайкнуть вариант"
+                            onClick={() => void onVote(item.id, "up")}
+                          >
+                            👍
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            aria-label="Дизлайкнуть вариант"
+                            onClick={() => void onVote(item.id, "down")}
+                          >
+                            👎
+                          </Button>
+                        </div>
                       </>
                     ) : null}
                   </div>
+
                   {canCollaborate ? (
-                    <div className="flex items-center gap-2 border-l pl-3">
+                    <div className="flex items-center justify-end gap-2 border-t pt-2">
                       <Button
                         size="icon"
                         variant="outline"

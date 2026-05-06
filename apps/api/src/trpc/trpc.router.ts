@@ -4,24 +4,24 @@ import { randomBytes } from 'node:crypto';
 import superjson from 'superjson';
 import { z } from 'zod';
 import {
-  hashPassword,
-  signAccessToken,
-  verifyPassword,
+    hashPassword,
+    signAccessToken,
+    verifyPassword,
 } from '../auth/auth.utils';
 import { getUsdRubRateFromCbr } from '../forex/cbr-usd-rub';
 import {
-  analyzeReceiptImageFromUrl,
-  assertTrustedReceiptImageUrl,
+    analyzeReceiptImageFromUrl,
+    assertTrustedReceiptImageUrl,
 } from '../gemini/analyze-receipt-image';
 import { enrichAccommodationFromUrl } from '../gemini/enrich-accommodation-from-url';
 import { fetchLinkPreview } from '../link-preview/link-preview';
 import {
-  assertDocumentObjectKeyForTrip,
-  buildPublicDocumentUrl,
-  deleteDocumentObject,
-  signDocumentUpload,
-  signImageUpload,
-  signReceiptImageUpload,
+    assertDocumentObjectKeyForTrip,
+    buildPublicDocumentUrl,
+    deleteDocumentObject,
+    signDocumentUpload,
+    signImageUpload,
+    signReceiptImageUpload,
 } from '../s3';
 import { TrpcContext } from './trpc.context';
 
@@ -57,6 +57,15 @@ const tripSettingsSchema = z.object({
   timezone: z.string().min(2).max(80).default('Europe/Moscow'),
   housingRequirements: z.array(z.string().min(1).max(40)).max(20).default([]),
 });
+
+function getWebOriginForInvite(): string {
+  const rawOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+  const firstOrigin = rawOrigin
+    .split(',')
+    .map((part) => part.trim())
+    .find(Boolean);
+  return firstOrigin ?? 'http://localhost:3000';
+}
 
 const accommodationInputSchema = z.object({
   title: z.string().min(2).max(160),
@@ -515,7 +524,7 @@ export const appRouter = t.router({
 
         return {
           code,
-          inviteUrl: `${process.env.WEB_ORIGIN ?? 'http://localhost:3000'}/join/${code}`,
+          inviteUrl: `${getWebOriginForInvite()}/join/${code}`,
           expiresAt,
         };
       }),
