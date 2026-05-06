@@ -122,12 +122,12 @@ export default function TripsPage() {
 
       {isCreateModalOpen ? (
         <div
-          className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-[2000] flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/50 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
           onClick={closeCreateModal}
           role="presentation"
         >
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl"
+            className="my-6 max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-full max-w-lg overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-trip-modal-title"

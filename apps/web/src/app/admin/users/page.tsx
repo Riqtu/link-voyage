@@ -328,142 +328,147 @@ export default function AdminUsersPage() {
         }}
       >
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[2100] bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-          <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-[2110] max-h-[min(85dvh,calc(100vh-3rem))] w-[min(100vw-1.75rem,24rem)] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <Dialog.Title className="text-lg font-semibold tracking-tight">
-                  Профиль пользователя
-                </Dialog.Title>
-                {editRow ? (
-                  <Dialog.Description className="mt-1 text-xs text-muted-foreground">
-                    {editRow.email}
-                  </Dialog.Description>
-                ) : null}
+          <div className="fixed inset-0 z-[2100] flex items-center justify-center overflow-y-auto overscroll-y-contain px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Dialog.Backdrop className="absolute inset-0 z-0 bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+            <Dialog.Popup className="relative z-10 my-6 w-[min(100vw-2rem,24rem)] max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <Dialog.Title className="text-lg font-semibold tracking-tight">
+                    Профиль пользователя
+                  </Dialog.Title>
+                  {editRow ? (
+                    <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+                      {editRow.email}
+                    </Dialog.Description>
+                  ) : null}
+                </div>
+                <Dialog.Close
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Закрыть"
+                >
+                  <X className="size-5" aria-hidden />
+                </Dialog.Close>
               </div>
-              <Dialog.Close
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Закрыть"
+
+              <form
+                className="mt-4 space-y-4"
+                onSubmit={(e) => void saveEdit(e)}
               >
-                <X className="size-5" aria-hidden />
-              </Dialog.Close>
-            </div>
+                <div className="space-y-1">
+                  <label
+                    className="block text-xs text-muted-foreground"
+                    htmlFor={`${formId}-name`}
+                  >
+                    Имя
+                  </label>
+                  <input
+                    id={`${formId}-name`}
+                    type="text"
+                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                    value={firstName}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      setFirstName(e.target.value)
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label
+                    className="block text-xs text-muted-foreground"
+                    htmlFor={`${formId}-last`}
+                  >
+                    Фамилия
+                  </label>
+                  <input
+                    id={`${formId}-last`}
+                    type="text"
+                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                    value={lastName}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      setLastName(e.target.value)
+                    }
+                    autoComplete="off"
+                  />
+                </div>
 
-            <form className="mt-4 space-y-4" onSubmit={(e) => void saveEdit(e)}>
-              <div className="space-y-1">
-                <label
-                  className="block text-xs text-muted-foreground"
-                  htmlFor={`${formId}-name`}
-                >
-                  Имя
-                </label>
-                <input
-                  id={`${formId}-name`}
-                  type="text"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                  value={firstName}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    setFirstName(e.target.value)
-                  }
-                  autoComplete="off"
-                />
-              </div>
-              <div className="space-y-1">
-                <label
-                  className="block text-xs text-muted-foreground"
-                  htmlFor={`${formId}-last`}
-                >
-                  Фамилия
-                </label>
-                <input
-                  id={`${formId}-last`}
-                  type="text"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                  value={lastName}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    setLastName(e.target.value)
-                  }
-                  autoComplete="off"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Аватар</p>
-                <div className="flex items-center gap-3">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
-                    {avatarDraftUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={avatarDraftUrl}
-                        alt=""
-                        className="absolute inset-0 size-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="flex size-full items-center justify-center text-muted-foreground">
-                        <User className="size-6" aria-hidden />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={avatarBusy || !editRow}
-                      onClick={() => {
-                        const input = document.createElement("input");
-                        input.type = "file";
-                        input.accept = "image/*";
-                        input.onchange = () =>
-                          void uploadAvatarForEdit(input.files);
-                        input.click();
-                      }}
-                    >
-                      {avatarBusy ? "Загрузка…" : "Загрузить"}
-                    </Button>
-                    {avatarDraftUrl ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Аватар</p>
+                  <div className="flex items-center gap-3">
+                    <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
+                      {avatarDraftUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={avatarDraftUrl}
+                          alt=""
+                          className="absolute inset-0 size-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="flex size-full items-center justify-center text-muted-foreground">
+                          <User className="size-6" aria-hidden />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-2">
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        disabled={saveBusy}
-                        onClick={() => void clearAvatarInForm()}
+                        disabled={avatarBusy || !editRow}
+                        onClick={() => {
+                          const input = document.createElement("input");
+                          input.type = "file";
+                          input.accept = "image/*";
+                          input.onchange = () =>
+                            void uploadAvatarForEdit(input.files);
+                          input.click();
+                        }}
                       >
-                        <Trash2 className="size-4 sm:mr-1" aria-hidden />
-                        <span className="hidden sm:inline">Убрать</span>
+                        {avatarBusy ? "Загрузка…" : "Загрузить"}
                       </Button>
-                    ) : null}
+                      {avatarDraftUrl ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          disabled={saveBusy}
+                          onClick={() => void clearAvatarInForm()}
+                        >
+                          <Trash2 className="size-4 sm:mr-1" aria-hidden />
+                          <span className="hidden sm:inline">Убрать</span>
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {formError ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {formError}
-                </p>
-              ) : null}
-              {saveOk ? (
-                <p className="text-sm text-green-700 dark:text-green-400">
-                  {saveOk}
-                </p>
-              ) : null}
+                {formError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {formError}
+                  </p>
+                ) : null}
+                {saveOk ? (
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    {saveOk}
+                  </p>
+                ) : null}
 
-              <div className="flex flex-wrap justify-end gap-2 pt-2">
-                <Dialog.Close
-                  className={cn(
-                    "inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium hover:bg-muted",
-                  )}
-                >
-                  Отмена
-                </Dialog.Close>
-                <Button type="submit" disabled={saveBusy}>
-                  {saveBusy ? "Сохранение…" : "Сохранить"}
-                </Button>
-              </div>
-            </form>
-          </Dialog.Popup>
+                <div className="flex flex-wrap justify-end gap-2 pt-2">
+                  <Dialog.Close
+                    className={cn(
+                      "inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium hover:bg-muted",
+                    )}
+                  >
+                    Отмена
+                  </Dialog.Close>
+                  <Button type="submit" disabled={saveBusy}>
+                    {saveBusy ? "Сохранение…" : "Сохранить"}
+                  </Button>
+                </div>
+              </form>
+            </Dialog.Popup>
+          </div>
         </Dialog.Portal>
       </Dialog.Root>
     </div>

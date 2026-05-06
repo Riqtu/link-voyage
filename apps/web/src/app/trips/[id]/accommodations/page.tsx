@@ -1829,492 +1829,501 @@ export default function AccommodationsPage() {
         }}
       >
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[2140] bg-black/60 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-          <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-[2150] flex max-h-[min(92dvh,calc(100vh-1rem))] w-[min(100vw-1rem,56rem)] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl outline-none">
-            {detailOption ? (
-              <>
-                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
-                  <div className="min-w-0">
-                    <Dialog.Title className="text-xl font-semibold tracking-tight text-pretty">
-                      {detailOption.title}
-                    </Dialog.Title>
-                    <Dialog.Description className="sr-only">
-                      Подробный вид варианта жилья: фото, карта и данные для
-                      сравнения.
-                    </Dialog.Description>
-                    {detailOption.provider ? (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {detailOption.provider}
-                      </p>
-                    ) : null}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <AccommodationStatusBadge status={detailOption.status} />
-                      {detailOption.noLongerAvailable ? (
-                        <span className="rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground">
-                          Занято / недоступно
-                        </span>
-                      ) : null}
-                      {detailOption.locationLabel ? (
-                        <span className="flex items-start gap-1 text-xs text-muted-foreground">
-                          <MapPin
-                            className="mt-0.5 size-3.5 shrink-0"
-                            aria-hidden
-                          />
-                          <span>{detailOption.locationLabel}</span>
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <Dialog.Close
-                    className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    aria-label="Закрыть"
-                  >
-                    <X className="size-5" aria-hidden />
-                  </Dialog.Close>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-5 sm:px-5">
-                  <div className="mt-4 grid gap-6 lg:grid-cols-5">
-                    <div className="min-w-0 space-y-3 lg:col-span-3">
-                      {detailOption.previewImages.length > 0 ? (
-                        <>
-                          <button
-                            type="button"
-                            className="group relative aspect-[4/3] w-full overflow-hidden rounded-2xl border bg-muted shadow-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-                            title="Открыть галерею"
-                            onClick={() =>
-                              openGallery(
-                                detailOption.previewImages,
-                                detailGalleryIndex,
-                              )
-                            }
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={
-                                detailOption.previewImages[detailGalleryIndex]
-                                  ?.url ?? detailOption.previewImages[0]!.url
-                              }
-                              alt=""
-                              className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                              referrerPolicy="no-referrer"
-                            />
-                            <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white">
-                              Открыть галерею
-                            </span>
-                          </button>
-                          {detailOption.previewImages.length > 1 ? (
-                            <div
-                              role="tablist"
-                              aria-label="Миниатюры фото"
-                              className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]"
-                            >
-                              {detailOption.previewImages.map((img, idx) => (
-                                <button
-                                  key={`${detailOption.id}-dthumb-${idx}`}
-                                  role="tab"
-                                  type="button"
-                                  aria-selected={detailGalleryIndex === idx}
-                                  onClick={() => setDetailGalleryIndex(idx)}
-                                  title={img.zone?.trim() || undefined}
-                                  className={cn(
-                                    "relative h-14 w-[3.85rem] shrink-0 overflow-hidden rounded-lg border-2 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
-                                    detailGalleryIndex === idx
-                                      ? "border-primary"
-                                      : "border-transparent opacity-80 hover:opacity-100",
-                                  )}
-                                >
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={img.url}
-                                    alt=""
-                                    className="size-full object-cover"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                </button>
-                              ))}
-                            </div>
-                          ) : null}
-                        </>
-                      ) : (
-                        <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-dashed text-sm text-muted-foreground">
-                          Нет фотографий
-                        </div>
-                      )}
-                      {detailOption.previewDescription ? (
-                        <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Описание
-                          </p>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">
-                            {detailOption.previewDescription}
-                          </p>
-                        </div>
-                      ) : null}
-                      {detailOption.amenities.length > 0 ? (
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Удобства
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {detailOption.amenities.map((amenity) => (
-                              <span
-                                key={`${detailOption.id}-am-${amenity}`}
-                                className="rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground"
-                              >
-                                {amenity}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                      {tripRequirements.length ? (
-                        <p className="text-xs text-muted-foreground">
-                          Совпадение с требованиями поездки:{" "}
-                          {
-                            tripRequirements.filter((req) =>
-                              detailOption.amenities
-                                .map((a) => a.toLowerCase())
-                                .includes(req.toLowerCase()),
-                            ).length
-                          }
-                          /{tripRequirements.length}
+          <div className="fixed inset-0 z-[2140] flex items-center justify-center overflow-y-auto overscroll-y-contain px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Dialog.Backdrop className="absolute inset-0 z-0 bg-black/60 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+            <Dialog.Popup className="relative z-10 my-6 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-[min(100vw-2rem,56rem)] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl outline-none">
+              {detailOption ? (
+                <>
+                  <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+                    <div className="min-w-0">
+                      <Dialog.Title className="text-xl font-semibold tracking-tight text-pretty">
+                        {detailOption.title}
+                      </Dialog.Title>
+                      <Dialog.Description className="sr-only">
+                        Подробный вид варианта жилья: фото, карта и данные для
+                        сравнения.
+                      </Dialog.Description>
+                      {detailOption.provider ? (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {detailOption.provider}
                         </p>
                       ) : null}
-                    </div>
-
-                    <div className="flex flex-col gap-4 lg:col-span-2">
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          Расположение
-                        </p>
-                        <div className="mt-2 h-[220px] overflow-hidden rounded-xl border sm:h-[260px]">
-                          {detailOption.coordinates ? (
-                            <AccommodationMap
-                              center={detailOption.coordinates}
-                              rubPerUsd={rubPerUsd}
-                              points={[
-                                {
-                                  id: detailOption.id,
-                                  title: detailOption.title,
-                                  coordinates: detailOption.coordinates,
-                                  locationLabel: detailOption.locationLabel,
-                                  status: detailOption.status,
-                                  noLongerAvailable:
-                                    detailOption.noLongerAvailable,
-                                  price: detailOption.price,
-                                  currency: detailOption.currency,
-                                  image: detailOption.previewImages[0]?.url,
-                                  sourceUrl: detailOption.sourceUrl,
-                                },
-                              ]}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <AccommodationStatusBadge
+                          status={detailOption.status}
+                        />
+                        {detailOption.noLongerAvailable ? (
+                          <span className="rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground">
+                            Занято / недоступно
+                          </span>
+                        ) : null}
+                        {detailOption.locationLabel ? (
+                          <span className="flex items-start gap-1 text-xs text-muted-foreground">
+                            <MapPin
+                              className="mt-0.5 size-3.5 shrink-0"
+                              aria-hidden
                             />
-                          ) : (
-                            <div className="flex h-full flex-col items-center justify-center gap-2 bg-muted/40 px-3 text-center text-sm text-muted-foreground">
-                              <MapPin
-                                className="size-8 opacity-55"
-                                aria-hidden
-                              />
-                              У варианта нет координат.
-                            </div>
-                          )}
-                        </div>
+                            <span>{detailOption.locationLabel}</span>
+                          </span>
+                        ) : null}
                       </div>
+                    </div>
+                    <Dialog.Close
+                      className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      aria-label="Закрыть"
+                    >
+                      <X className="size-5" aria-hidden />
+                    </Dialog.Close>
+                  </div>
 
-                      <div className="rounded-xl border bg-muted/30 p-4">
-                        {detailOption.price !== null ? (
+                  <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-5 sm:px-5">
+                    <div className="mt-4 grid gap-6 lg:grid-cols-5">
+                      <div className="min-w-0 space-y-3 lg:col-span-3">
+                        {detailOption.previewImages.length > 0 ? (
                           <>
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <p className="text-sm font-medium">
-                                Общая цена:{" "}
-                                {formatAmount(
-                                  calcTotalPrice(detailOption) ?? 0,
-                                  detailOption.currency,
-                                )}
-                              </p>
-                              <span className="text-xs text-muted-foreground">
-                                Тип: {detailOption.pricingMode}
+                            <button
+                              type="button"
+                              className="group relative aspect-[4/3] w-full overflow-hidden rounded-2xl border bg-muted shadow-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                              title="Открыть галерею"
+                              onClick={() =>
+                                openGallery(
+                                  detailOption.previewImages,
+                                  detailGalleryIndex,
+                                )
+                              }
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={
+                                  detailOption.previewImages[detailGalleryIndex]
+                                    ?.url ?? detailOption.previewImages[0]!.url
+                                }
+                                alt=""
+                                className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                referrerPolicy="no-referrer"
+                              />
+                              <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white">
+                                Открыть галерею
                               </span>
-                            </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              На человека ({peopleCount}):{" "}
-                              {calcPerPerson(detailOption) !== null
-                                ? formatAmount(
-                                    calcPerPerson(detailOption) ?? 0,
-                                    detailOption.currency,
-                                  )
-                                : "—"}
-                            </p>
-                            {rubPerUsd !== null &&
-                            isUsdCurrency(detailOption.currency) &&
-                            calcTotalPrice(detailOption) !== null &&
-                            calcPerPerson(detailOption) !== null ? (
-                              <div className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
-                                <p>
-                                  ≈{" "}
-                                  {formatRubAmount(
-                                    (calcTotalPrice(detailOption) ?? 0) *
-                                      rubPerUsd,
-                                  )}{" "}
-                                  общая (оценка)
-                                </p>
-                                <p className="mt-0.5">
-                                  ≈{" "}
-                                  {formatRubAmount(
-                                    (calcPerPerson(detailOption) ?? 0) *
-                                      rubPerUsd,
-                                  )}{" "}
-                                  на человека (оценка)
-                                </p>
+                            </button>
+                            {detailOption.previewImages.length > 1 ? (
+                              <div
+                                role="tablist"
+                                aria-label="Миниатюры фото"
+                                className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]"
+                              >
+                                {detailOption.previewImages.map((img, idx) => (
+                                  <button
+                                    key={`${detailOption.id}-dthumb-${idx}`}
+                                    role="tab"
+                                    type="button"
+                                    aria-selected={detailGalleryIndex === idx}
+                                    onClick={() => setDetailGalleryIndex(idx)}
+                                    title={img.zone?.trim() || undefined}
+                                    className={cn(
+                                      "relative h-14 w-[3.85rem] shrink-0 overflow-hidden rounded-lg border-2 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
+                                      detailGalleryIndex === idx
+                                        ? "border-primary"
+                                        : "border-transparent opacity-80 hover:opacity-100",
+                                    )}
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={img.url}
+                                      alt=""
+                                      className="size-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  </button>
+                                ))}
                               </div>
                             ) : null}
                           </>
                         ) : (
-                          <p className="text-sm text-muted-foreground">
-                            Цена не указана.
-                          </p>
+                          <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-dashed text-sm text-muted-foreground">
+                            Нет фотографий
+                          </div>
                         )}
-                        {detailOption.rating !== null ? (
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            Рейтинг:{" "}
-                            <span className="font-medium text-foreground">
-                              {detailOption.rating}
-                            </span>
-                          </p>
+                        {detailOption.previewDescription ? (
+                          <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Описание
+                            </p>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">
+                              {detailOption.previewDescription}
+                            </p>
+                          </div>
                         ) : null}
-                        {detailOption.freeCancellation ? (
-                          <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
-                            Бесплатная отмена
-                          </p>
-                        ) : null}
-                      </div>
-
-                      {detailOption.notes ? (
-                        <div className="rounded-xl border border-dashed border-border/80 p-3">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Заметки
-                          </p>
-                          <p className="mt-1 whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">
-                            {detailOption.notes}
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="mt-6 rounded-xl border bg-muted/15 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-baseline gap-2">
-                        <p className="text-sm font-medium">
-                          Комментарии участников
-                        </p>
-                        {(commentsByOption[detailOption.id]?.length ?? 0) >
-                        0 ? (
-                          <span className="text-xs tabular-nums text-muted-foreground">
-                            {commentsByOption[detailOption.id]!.length}
-                          </span>
-                        ) : null}
-                      </div>
-                      {canCollaborate ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          onClick={() => openCommentModal(detailOption.id)}
-                        >
-                          Добавить комментарий
-                        </Button>
-                      ) : null}
-                    </div>
-                    {(commentsByOption[detailOption.id] ?? []).length === 0 ? (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Пока нет комментариев.
-                      </p>
-                    ) : (
-                      <ul className="mt-2 max-h-56 space-y-3 overflow-y-auto pr-1">
-                        {(commentsByOption[detailOption.id] ?? []).map((c) => (
-                          <li
-                            key={c.id}
-                            className="flex gap-2 rounded-lg border border-border/60 bg-card px-2 py-2 text-sm"
-                          >
-                            <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
-                              {c.authorAvatarUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={c.authorAvatarUrl}
-                                  alt=""
-                                  className="absolute inset-0 size-full object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <div className="flex size-full items-center justify-center text-muted-foreground">
-                                  <User className="size-4" aria-hidden />
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-                                <span className="font-medium">
-                                  {c.authorName}
-                                </span>
-                                <time
-                                  className="shrink-0 text-[11px] text-muted-foreground"
-                                  dateTime={c.createdAt}
+                        {detailOption.amenities.length > 0 ? (
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Удобства
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {detailOption.amenities.map((amenity) => (
+                                <span
+                                  key={`${detailOption.id}-am-${amenity}`}
+                                  className="rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground"
                                 >
-                                  {new Date(c.createdAt).toLocaleString(
-                                    "ru-RU",
-                                    {
-                                      dateStyle: "short",
-                                      timeStyle: "short",
-                                    },
-                                  )}
-                                </time>
-                              </div>
-                              <p className="mt-1 whitespace-pre-wrap wrap-break-words text-muted-foreground">
-                                {c.body}
-                              </p>
+                                  {amenity}
+                                </span>
+                              ))}
                             </div>
-                            {c.canDelete ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 shrink-0 self-start text-muted-foreground hover:text-destructive"
-                                title="Удалить комментарий"
-                                aria-label="Удалить комментарий"
-                                onClick={() =>
-                                  void handleDeleteAccommodationComment(c.id)
-                                }
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                          </div>
+                        ) : null}
+                        {tripRequirements.length ? (
+                          <p className="text-xs text-muted-foreground">
+                            Совпадение с требованиями поездки:{" "}
+                            {
+                              tripRequirements.filter((req) =>
+                                detailOption.amenities
+                                  .map((a) => a.toLowerCase())
+                                  .includes(req.toLowerCase()),
+                              ).length
+                            }
+                            /{tripRequirements.length}
+                          </p>
+                        ) : null}
+                      </div>
 
-                  <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      disabled={!detailOption.coordinates}
-                      onClick={() => {
-                        closeAccommodationDetail();
-                        revealAccommodationOnMap(detailOption);
-                      }}
-                    >
-                      <MapPin className="size-3.5" aria-hidden />
-                      На общей карте
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        toggleCompare(detailOption.id);
-                      }}
-                    >
-                      {selectedIds.includes(detailOption.id)
-                        ? "Убрать из сравнения"
-                        : "В сравнение"}
-                    </Button>
-                    {detailOption.sourceUrl ? (
-                      <a
-                        href={detailOption.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={cn(
-                          buttonVariants({ variant: "outline", size: "sm" }),
-                          "inline-flex gap-1.5 no-underline",
-                        )}
+                      <div className="flex flex-col gap-4 lg:col-span-2">
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Расположение
+                          </p>
+                          <div className="mt-2 h-[220px] overflow-hidden rounded-xl border sm:h-[260px]">
+                            {detailOption.coordinates ? (
+                              <AccommodationMap
+                                center={detailOption.coordinates}
+                                rubPerUsd={rubPerUsd}
+                                points={[
+                                  {
+                                    id: detailOption.id,
+                                    title: detailOption.title,
+                                    coordinates: detailOption.coordinates,
+                                    locationLabel: detailOption.locationLabel,
+                                    status: detailOption.status,
+                                    noLongerAvailable:
+                                      detailOption.noLongerAvailable,
+                                    price: detailOption.price,
+                                    currency: detailOption.currency,
+                                    image: detailOption.previewImages[0]?.url,
+                                    sourceUrl: detailOption.sourceUrl,
+                                  },
+                                ]}
+                              />
+                            ) : (
+                              <div className="flex h-full flex-col items-center justify-center gap-2 bg-muted/40 px-3 text-center text-sm text-muted-foreground">
+                                <MapPin
+                                  className="size-8 opacity-55"
+                                  aria-hidden
+                                />
+                                У варианта нет координат.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border bg-muted/30 p-4">
+                          {detailOption.price !== null ? (
+                            <>
+                              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                <p className="text-sm font-medium">
+                                  Общая цена:{" "}
+                                  {formatAmount(
+                                    calcTotalPrice(detailOption) ?? 0,
+                                    detailOption.currency,
+                                  )}
+                                </p>
+                                <span className="text-xs text-muted-foreground">
+                                  Тип: {detailOption.pricingMode}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                На человека ({peopleCount}):{" "}
+                                {calcPerPerson(detailOption) !== null
+                                  ? formatAmount(
+                                      calcPerPerson(detailOption) ?? 0,
+                                      detailOption.currency,
+                                    )
+                                  : "—"}
+                              </p>
+                              {rubPerUsd !== null &&
+                              isUsdCurrency(detailOption.currency) &&
+                              calcTotalPrice(detailOption) !== null &&
+                              calcPerPerson(detailOption) !== null ? (
+                                <div className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                                  <p>
+                                    ≈{" "}
+                                    {formatRubAmount(
+                                      (calcTotalPrice(detailOption) ?? 0) *
+                                        rubPerUsd,
+                                    )}{" "}
+                                    общая (оценка)
+                                  </p>
+                                  <p className="mt-0.5">
+                                    ≈{" "}
+                                    {formatRubAmount(
+                                      (calcPerPerson(detailOption) ?? 0) *
+                                        rubPerUsd,
+                                    )}{" "}
+                                    на человека (оценка)
+                                  </p>
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Цена не указана.
+                            </p>
+                          )}
+                          {detailOption.rating !== null ? (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              Рейтинг:{" "}
+                              <span className="font-medium text-foreground">
+                                {detailOption.rating}
+                              </span>
+                            </p>
+                          ) : null}
+                          {detailOption.freeCancellation ? (
+                            <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
+                              Бесплатная отмена
+                            </p>
+                          ) : null}
+                        </div>
+
+                        {detailOption.notes ? (
+                          <div className="rounded-xl border border-dashed border-border/80 p-3">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Заметки
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">
+                              {detailOption.notes}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 rounded-xl border bg-muted/15 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-baseline gap-2">
+                          <p className="text-sm font-medium">
+                            Комментарии участников
+                          </p>
+                          {(commentsByOption[detailOption.id]?.length ?? 0) >
+                          0 ? (
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                              {commentsByOption[detailOption.id]!.length}
+                            </span>
+                          ) : null}
+                        </div>
+                        {canCollaborate ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={() => openCommentModal(detailOption.id)}
+                          >
+                            Добавить комментарий
+                          </Button>
+                        ) : null}
+                      </div>
+                      {(commentsByOption[detailOption.id] ?? []).length ===
+                      0 ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Пока нет комментариев.
+                        </p>
+                      ) : (
+                        <ul className="mt-2 max-h-56 space-y-3 overflow-y-auto pr-1">
+                          {(commentsByOption[detailOption.id] ?? []).map(
+                            (c) => (
+                              <li
+                                key={c.id}
+                                className="flex gap-2 rounded-lg border border-border/60 bg-card px-2 py-2 text-sm"
+                              >
+                                <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
+                                  {c.authorAvatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={c.authorAvatarUrl}
+                                      alt=""
+                                      className="absolute inset-0 size-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <div className="flex size-full items-center justify-center text-muted-foreground">
+                                      <User className="size-4" aria-hidden />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                                    <span className="font-medium">
+                                      {c.authorName}
+                                    </span>
+                                    <time
+                                      className="shrink-0 text-[11px] text-muted-foreground"
+                                      dateTime={c.createdAt}
+                                    >
+                                      {new Date(c.createdAt).toLocaleString(
+                                        "ru-RU",
+                                        {
+                                          dateStyle: "short",
+                                          timeStyle: "short",
+                                        },
+                                      )}
+                                    </time>
+                                  </div>
+                                  <p className="mt-1 whitespace-pre-wrap wrap-break-words text-muted-foreground">
+                                    {c.body}
+                                  </p>
+                                </div>
+                                {c.canDelete ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-8 shrink-0 self-start text-muted-foreground hover:text-destructive"
+                                    title="Удалить комментарий"
+                                    aria-label="Удалить комментарий"
+                                    onClick={() =>
+                                      void handleDeleteAccommodationComment(
+                                        c.id,
+                                      )
+                                    }
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                ) : null}
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        disabled={!detailOption.coordinates}
+                        onClick={() => {
+                          closeAccommodationDetail();
+                          revealAccommodationOnMap(detailOption);
+                        }}
                       >
-                        <ExternalLink
-                          className="size-3.5 shrink-0 opacity-80"
-                          aria-hidden
-                        />
-                        Открыть источник
-                      </a>
-                    ) : null}
-                    {canCollaborate ? (
-                      <>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={
-                            detailOption.noLongerAvailable
-                              ? "secondary"
-                              : "outline"
-                          }
-                          title="Отметить, что объект занят другими"
-                          onClick={() =>
-                            void toggleNoLongerAvailable(detailOption)
-                          }
-                        >
-                          {detailOption.noLongerAvailable
-                            ? "Снова доступно"
-                            : "Занято у других"}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="gap-1"
-                          onClick={() => openVoteModal(detailOption.id)}
-                        >
-                          Голоса:{" "}
-                          <span className="tabular-nums font-medium">
-                            {detailOption.upVotes - detailOption.downVotes}
-                          </span>
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
+                        <MapPin className="size-3.5" aria-hidden />
+                        На общей карте
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          toggleCompare(detailOption.id);
+                        }}
+                      >
+                        {selectedIds.includes(detailOption.id)
+                          ? "Убрать из сравнения"
+                          : "В сравнение"}
+                      </Button>
+                      {detailOption.sourceUrl ? (
+                        <a
+                          href={detailOption.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
                           className={cn(
-                            detailOption.userVote === "up" &&
-                              "border-emerald-500/80 bg-emerald-500/25 text-emerald-900 ring-1 ring-emerald-500/40 hover:bg-emerald-500/30 dark:text-emerald-300",
+                            buttonVariants({ variant: "outline", size: "sm" }),
+                            "inline-flex gap-1.5 no-underline",
                           )}
-                          aria-label="Лайкнуть вариант"
-                          onClick={() => void onVote(detailOption.id, "up")}
                         >
-                          👍
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className={cn(
-                            detailOption.userVote === "down" &&
-                              "border-red-500/80 bg-red-500/25 text-red-900 ring-1 ring-red-500/40 hover:bg-red-500/30 dark:text-red-300",
-                          )}
-                          aria-label="Дизлайкнуть вариант"
-                          onClick={() => void onVote(detailOption.id, "down")}
-                        >
-                          👎
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="default"
-                          onClick={() => {
-                            closeAccommodationDetail();
-                            startEditing(detailOption);
-                          }}
-                        >
-                          Редактировать
-                        </Button>
-                      </>
-                    ) : null}
+                          <ExternalLink
+                            className="size-3.5 shrink-0 opacity-80"
+                            aria-hidden
+                          />
+                          Открыть источник
+                        </a>
+                      ) : null}
+                      {canCollaborate ? (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={
+                              detailOption.noLongerAvailable
+                                ? "secondary"
+                                : "outline"
+                            }
+                            title="Отметить, что объект занят другими"
+                            onClick={() =>
+                              void toggleNoLongerAvailable(detailOption)
+                            }
+                          >
+                            {detailOption.noLongerAvailable
+                              ? "Снова доступно"
+                              : "Занято у других"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => openVoteModal(detailOption.id)}
+                          >
+                            Голоса:{" "}
+                            <span className="tabular-nums font-medium">
+                              {detailOption.upVotes - detailOption.downVotes}
+                            </span>
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className={cn(
+                              detailOption.userVote === "up" &&
+                                "border-emerald-500/80 bg-emerald-500/25 text-emerald-900 ring-1 ring-emerald-500/40 hover:bg-emerald-500/30 dark:text-emerald-300",
+                            )}
+                            aria-label="Лайкнуть вариант"
+                            onClick={() => void onVote(detailOption.id, "up")}
+                          >
+                            👍
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className={cn(
+                              detailOption.userVote === "down" &&
+                                "border-red-500/80 bg-red-500/25 text-red-900 ring-1 ring-red-500/40 hover:bg-red-500/30 dark:text-red-300",
+                            )}
+                            aria-label="Дизлайкнуть вариант"
+                            onClick={() => void onVote(detailOption.id, "down")}
+                          >
+                            👎
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="default"
+                            onClick={() => {
+                              closeAccommodationDetail();
+                              startEditing(detailOption);
+                            }}
+                          >
+                            Редактировать
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              </>
-            ) : null}
-          </Dialog.Popup>
+                </>
+              ) : null}
+            </Dialog.Popup>
+          </div>
         </Dialog.Portal>
       </Dialog.Root>
 
@@ -2435,8 +2444,8 @@ export default function AccommodationsPage() {
       ) : null}
 
       {galleryImages.length > 0 ? (
-        <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-black/80 p-4">
-          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl bg-background p-3 shadow-2xl">
+        <div className="fixed inset-0 z-[2200] flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/80 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="my-4 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-full max-w-5xl flex-col rounded-xl bg-background p-3 shadow-2xl">
             <div className="mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm tabular-nums text-muted-foreground">
@@ -2546,7 +2555,7 @@ export default function AccommodationsPage() {
       ) : null}
 
       {voteModalOptionId !== null ? (
-        <div className="fixed inset-0 z-[2260] flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[2260] flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/50 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
           {(() => {
             const selected = options.find((o) => o.id === voteModalOptionId);
             const upVoters =
@@ -2554,7 +2563,7 @@ export default function AccommodationsPage() {
             const downVoters =
               selected?.votes.filter((v) => v.value === "down") ?? [];
             return (
-              <div className="flex w-full max-w-lg flex-col rounded-2xl border bg-background p-5 shadow-2xl">
+              <div className="my-6 flex max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-full max-w-lg flex-col overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="text-lg font-medium">Голоса по варианту</h2>
@@ -2618,8 +2627,8 @@ export default function AccommodationsPage() {
       ) : null}
 
       {commentModalOptionId !== null && canCollaborate ? (
-        <div className="fixed inset-0 z-[2260] flex items-center justify-center bg-black/50 p-4">
-          <div className="flex w-full max-w-lg flex-col rounded-2xl border bg-background p-5 shadow-2xl">
+        <div className="fixed inset-0 z-[2260] flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/50 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="my-6 flex max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-full max-w-lg flex-col overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-lg font-medium">Новый комментарий</h2>
@@ -2673,8 +2682,8 @@ export default function AccommodationsPage() {
       ) : null}
 
       {isFormModalOpen && canCollaborate ? (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/50 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="my-6 max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-full max-w-3xl overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-medium">
                 {editingId ? "Редактировать вариант" : "Добавить вариант"}

@@ -127,6 +127,22 @@
   html {
     @apply bg-background text-foreground font-sans;
   }
+
+  /**
+   * iPhone Safari zoom при фокусе на полях с font-size < 16px.
+   * coarse pointer не трогает десктоп с мышью.
+   */
+  @media (hover: none) and (pointer: coarse) {
+    textarea,
+    select,
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+        [type="file"]
+      ):not([type="color"]):not([type="image"]):not([type="submit"]):not(
+        [type="reset"]
+      ):not([type="button"]):not([type="hidden"]) {
+      font-size: 16px;
+    }
+  }
 }
 
 /* Google Maps InfoWindow theme sync */

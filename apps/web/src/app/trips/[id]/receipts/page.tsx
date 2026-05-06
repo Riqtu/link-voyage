@@ -180,74 +180,76 @@ export default function TripReceiptsListPage() {
 
       <Dialog.Root open={createOpen} onOpenChange={handleCreateModalChange}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[2100] bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-          <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-[2110] max-h-[min(85dvh,calc(100vh-3rem))] w-[min(100vw-1.75rem,28rem)] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
-            <Dialog.Title className="text-lg font-semibold tracking-tight">
-              Новый чек
-            </Dialog.Title>
-            <Dialog.Description className="mt-1 text-xs text-muted-foreground">
-              Дальше откроется карточка: загрузите фото и запустите разбор.
-            </Dialog.Description>
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(e) => void onSubmitCreate(e)}
-            >
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">Название</span>
-                <input
-                  autoFocus
-                  className="rounded-lg border bg-background px-3 py-2 text-sm"
-                  placeholder="Ужин в …"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">Описание</span>
-                <textarea
-                  className="resize-y rounded-lg border bg-background px-3 py-2 text-sm"
-                  rows={2}
-                  placeholder="Необязательно"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">Оплатил</span>
-                <select
-                  className="rounded-lg border bg-background px-3 py-2 text-sm"
-                  required
-                  value={paidByUserId}
-                  onChange={(e) => setPaidByUserId(e.target.value)}
-                >
-                  {trip?.members.map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {m.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="mt-6 flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
-                <Dialog.Close
-                  type="button"
-                  disabled={createSaving}
-                  className={cn(
-                    buttonVariants({ variant: "outline" }),
-                    "w-full sm:w-auto",
-                  )}
-                >
-                  Отмена
-                </Dialog.Close>
-                <Button
-                  disabled={createSaving || !trip}
-                  type="submit"
-                  className="w-full sm:w-auto"
-                >
-                  {createSaving ? "Создаём…" : "Создать и открыть"}
-                </Button>
-              </div>
-            </form>
-          </Dialog.Popup>
+          <div className="fixed inset-0 z-[2100] flex items-center justify-center overflow-y-auto overscroll-y-contain px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Dialog.Backdrop className="absolute inset-0 z-0 bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+            <Dialog.Popup className="relative z-10 my-6 w-[min(100vw-2rem,28rem)] max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
+              <Dialog.Title className="text-lg font-semibold tracking-tight">
+                Новый чек
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+                Дальше откроется карточка: загрузите фото и запустите разбор.
+              </Dialog.Description>
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={(e) => void onSubmitCreate(e)}
+              >
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">Название</span>
+                  <input
+                    autoFocus
+                    className="rounded-lg border bg-background px-3 py-2 text-sm"
+                    placeholder="Ужин в …"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">Описание</span>
+                  <textarea
+                    className="resize-y rounded-lg border bg-background px-3 py-2 text-sm"
+                    rows={2}
+                    placeholder="Необязательно"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">Оплатил</span>
+                  <select
+                    className="rounded-lg border bg-background px-3 py-2 text-sm"
+                    required
+                    value={paidByUserId}
+                    onChange={(e) => setPaidByUserId(e.target.value)}
+                  >
+                    {trip?.members.map((m) => (
+                      <option key={m.userId} value={m.userId}>
+                        {m.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="mt-6 flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+                  <Dialog.Close
+                    type="button"
+                    disabled={createSaving}
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "w-full sm:w-auto",
+                    )}
+                  >
+                    Отмена
+                  </Dialog.Close>
+                  <Button
+                    disabled={createSaving || !trip}
+                    type="submit"
+                    className="w-full sm:w-auto"
+                  >
+                    {createSaving ? "Создаём…" : "Создать и открыть"}
+                  </Button>
+                </div>
+              </form>
+            </Dialog.Popup>
+          </div>
         </Dialog.Portal>
       </Dialog.Root>
 

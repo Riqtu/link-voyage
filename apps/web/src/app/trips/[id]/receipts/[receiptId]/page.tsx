@@ -793,14 +793,14 @@ export default function ReceiptDetailPage() {
           role="dialog"
           aria-modal="true"
           aria-label="Фото чека"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 pt-16"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/85 px-4 pt-[max(1rem,env(safe-area-inset-top)+0.75rem)] pb-[max(1rem,env(safe-area-inset-bottom)+0.75rem)]"
           onClick={() => setPhotoModalOpen(false)}
         >
           <Button
             type="button"
             variant="secondary"
             size="icon"
-            className="absolute top-3 right-3 z-[1] shadow-md"
+            className="fixed top-[max(1rem,calc(env(safe-area-inset-top)+1rem))] right-[max(1rem,env(safe-area-inset-right))] z-[1] shadow-md"
             aria-label="Закрыть"
             onClick={(e) => {
               e.stopPropagation();
@@ -812,7 +812,7 @@ export default function ReceiptDetailPage() {
           <img
             src={data.imageUrl}
             alt="Чек крупно"
-            className="max-h-[calc(100vh-5rem)] max-w-full object-contain shadow-lg"
+            className="mx-auto mt-14 max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-5rem)] max-w-full object-contain pb-6 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           />
         </div>

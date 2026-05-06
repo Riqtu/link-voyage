@@ -268,91 +268,93 @@ export default function TripDocumentsPage() {
 
       <Dialog.Root open={addModalOpen} onOpenChange={handleAddModalOpenChange}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-[2100] bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-          <Dialog.Popup className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-[2110] max-h-[min(85dvh,calc(100vh-3rem))] w-[min(100vw-1.75rem,32rem)] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
-            <Dialog.Title className="text-lg font-semibold tracking-tight">
-              Новый документ
-            </Dialog.Title>
-            <Dialog.Description className="mt-1 text-xs text-muted-foreground">
-              После сохранения появится карточка со ссылкой для просмотра или
-              скачивания.
-            </Dialog.Description>
+          <div className="fixed inset-0 z-[2100] flex items-center justify-center overflow-y-auto overscroll-y-contain px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Dialog.Backdrop className="absolute inset-0 z-0 bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+            <Dialog.Popup className="relative z-10 my-6 w-[min(100vw-2rem,32rem)] max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
+              <Dialog.Title className="text-lg font-semibold tracking-tight">
+                Новый документ
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+                После сохранения появится карточка со ссылкой для просмотра или
+                скачивания.
+              </Dialog.Description>
 
-            {addModalError ? (
-              <p className="mt-3 text-sm text-destructive">{addModalError}</p>
-            ) : null}
+              {addModalError ? (
+                <p className="mt-3 text-sm text-destructive">{addModalError}</p>
+              ) : null}
 
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submitNewDocument();
-              }}
-            >
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">Название</span>
-                <input
-                  autoFocus
-                  minLength={2}
-                  maxLength={160}
-                  className="rounded-lg border bg-background px-3 py-2 text-sm"
-                  placeholder="Билеты, полис, договор…"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">
-                  Описание (необязательно)
-                </span>
-                <textarea
-                  maxLength={2000}
-                  rows={3}
-                  className="resize-y rounded-lg border bg-background px-3 py-2 text-sm"
-                  placeholder="Кратко, что внутри и зачем нужна группе"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">Файл</span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  required
-                  className="cursor-pointer rounded-lg border border-dashed bg-background px-3 py-4 text-sm file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:text-primary-foreground"
-                  accept={docAcceptAttr()}
-                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                    const f = event.target.files?.[0];
-                    if (f && !title.trim()) {
-                      const base = f.name.replace(/\.[^/.]+$/, "");
-                      setTitle(base.replace(/_/g, " "));
-                    }
-                  }}
-                />
-              </label>
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submitNewDocument();
+                }}
+              >
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">Название</span>
+                  <input
+                    autoFocus
+                    minLength={2}
+                    maxLength={160}
+                    className="rounded-lg border bg-background px-3 py-2 text-sm"
+                    placeholder="Билеты, полис, договор…"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">
+                    Описание (необязательно)
+                  </span>
+                  <textarea
+                    maxLength={2000}
+                    rows={3}
+                    className="resize-y rounded-lg border bg-background px-3 py-2 text-sm"
+                    placeholder="Кратко, что внутри и зачем нужна группе"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">Файл</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    required
+                    className="cursor-pointer rounded-lg border border-dashed bg-background px-3 py-4 text-sm file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:text-primary-foreground"
+                    accept={docAcceptAttr()}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                      const f = event.target.files?.[0];
+                      if (f && !title.trim()) {
+                        const base = f.name.replace(/\.[^/.]+$/, "");
+                        setTitle(base.replace(/_/g, " "));
+                      }
+                    }}
+                  />
+                </label>
 
-              <div className="mt-6 flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
-                <Dialog.Close
-                  type="button"
-                  disabled={uploadBusy}
-                  className={cn(
-                    buttonVariants({ variant: "outline" }),
-                    "w-full sm:w-auto",
-                  )}
-                >
-                  Отмена
-                </Dialog.Close>
-                <Button
-                  type="submit"
-                  disabled={uploadBusy}
-                  className="w-full sm:w-auto"
-                >
-                  {uploadBusy ? "Загружаем…" : "Загрузить и сохранить"}
-                </Button>
-              </div>
-            </form>
-          </Dialog.Popup>
+                <div className="mt-6 flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+                  <Dialog.Close
+                    type="button"
+                    disabled={uploadBusy}
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "w-full sm:w-auto",
+                    )}
+                  >
+                    Отмена
+                  </Dialog.Close>
+                  <Button
+                    type="submit"
+                    disabled={uploadBusy}
+                    className="w-full sm:w-auto"
+                  >
+                    {uploadBusy ? "Загружаем…" : "Загрузить и сохранить"}
+                  </Button>
+                </div>
+              </form>
+            </Dialog.Popup>
+          </div>
         </Dialog.Portal>
       </Dialog.Root>
 
