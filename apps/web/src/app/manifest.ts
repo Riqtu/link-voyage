@@ -7,8 +7,9 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Collaborative trip planning with friends",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#0f172a",
+    /** Тёмный фон загрузки standalone: чёрная полоса сверху при #fff и тёмной теме. */
+    background_color: "#171717",
+    theme_color: "#171717",
     icons: [
       {
         src: "/icons/icon.svg",

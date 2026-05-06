@@ -5,6 +5,7 @@
  * из‑за чего React 19 пишет в консоль предупреждение. Хранилище ключ `theme`
  * совместимо с прежним next-themes (light | dark | system).
  */
+import { syncStandaloneChrome } from "@/lib/theme-chrome";
 import {
   createContext,
   useCallback,
@@ -56,6 +57,7 @@ function applyResolved(resolved: "light" | "dark") {
   root.classList.remove("light", "dark");
   root.classList.add(resolved);
   root.style.colorScheme = resolved;
+  syncStandaloneChrome(resolved);
 }
 
 function resolveFromSetting(setting: ThemeSetting): "light" | "dark" {
