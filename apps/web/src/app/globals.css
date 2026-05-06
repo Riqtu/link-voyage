@@ -127,22 +127,6 @@
   html {
     @apply bg-background text-foreground font-sans;
   }
-
-  /**
-   * iPhone Safari zoom при фокусе на полях с font-size < 16px.
-   * coarse pointer не трогает десктоп с мышью.
-   */
-  @media (hover: none) and (pointer: coarse) {
-    textarea,
-    select,
-    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
-        [type="file"]
-      ):not([type="color"]):not([type="image"]):not([type="submit"]):not(
-        [type="reset"]
-      ):not([type="button"]):not([type="hidden"]) {
-      font-size: 16px;
-    }
-  }
 }
 
 /* Google Maps InfoWindow theme sync */
@@ -198,4 +182,20 @@
 .accommodation-map-infowindow-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in oklch, var(--muted-foreground) 55%, var(--card));
   border-radius: 9999px;
+}
+
+/*
+ * Safari (iPhone/iPad): фокус в полях с font-size < 16px зумит страницу.
+ * Утилиты Tailwind вроде text-sm перебивают @layer base — нужен !important вне слоёв.
+ */
+@media (max-width: 1024px), (pointer: coarse), (pointer: none) {
+  textarea,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="file"]
+    ):not([type="color"]):not([type="image"]):not([type="submit"]):not(
+      [type="reset"]
+    ):not([type="button"]):not([type="hidden"]) {
+    font-size: 16px !important;
+  }
 }
