@@ -126,7 +126,38 @@ export function patchConsumptionOptimistic<
     for (const c of consumptions) {
       m.set(c.userId, Math.round(((m.get(c.userId) ?? 0) + c.qty) * 1e6) / 1e6);
     }
-    const merged = [...m.entries()].map(([userId, qty]) => ({ userId, qty }));
+    let merged = [...m.entries()].map(([userId, qty]) => ({ userId, qty }));
+    const lineQty = Math.max(Number(line.qty) || 0, 0);
+    const sumQ = merged.reduce((s, c) => s + c.qty, 0);
+    const isSingleQtyLine =
+      Number.isFinite(lineQty) && lineQty > 0 && Math.abs(lineQty - 1) < 1e-3;
+    if (
+      isSingleQtyLine &&
+      merged.length > 0 &&
+      lineQty > RECEIPT_LINE_QTY_EPS
+    ) {
+      const each = Math.round((lineQty / merged.length) * 1e6) / 1e6;
+      merged = merged.map((c) => ({ userId: c.userId, qty: each }));
+      const adjustedSumQ = merged.reduce((s, c) => s + c.qty, 0);
+      const delta = Math.round((lineQty - adjustedSumQ) * 1e6) / 1e6;
+      if (Math.abs(delta) > 1e-9) {
+        const idx = merged.findIndex((c) => c.userId === viewerId);
+        const fixIdx = idx >= 0 ? idx : 0;
+        merged[fixIdx] = {
+          userId: merged[fixIdx]!.userId,
+          qty: Math.max(
+            0,
+            Math.round((merged[fixIdx]!.qty + delta) * 1e6) / 1e6,
+          ),
+        };
+      }
+    } else if (sumQ > lineQty + RECEIPT_LINE_QTY_EPS) {
+      const k = lineQty / sumQ;
+      merged = merged.map((c) => ({
+        userId: c.userId,
+        qty: Math.round(c.qty * k * 1e6) / 1e6,
+      }));
+    }
     const consumedQtyTotal =
       Math.round(
         merged.reduce((s, c) => s + c.qty, 0) * 1000 + Number.EPSILON,
@@ -169,10 +200,10 @@ export function patchConsumptionOptimistic<
 
 export function patchReimbursedOptimistic<
   R extends { reimbursedPayerUserIds: string[] },
->(draft: R, viewerId: string): R {
-  const has = draft.reimbursedPayerUserIds.includes(viewerId);
+>(draft: R, targetUserId: string): R {
+  const has = draft.reimbursedPayerUserIds.includes(targetUserId);
   const reimbursedPayerUserIds = has
-    ? draft.reimbursedPayerUserIds.filter((id) => id !== viewerId)
-    : [...draft.reimbursedPayerUserIds, viewerId];
+    ? draft.reimbursedPayerUserIds.filter((id) => id !== targetUserId)
+    : [...draft.reimbursedPayerUserIds, targetUserId];
   return { ...draft, reimbursedPayerUserIds };
 }

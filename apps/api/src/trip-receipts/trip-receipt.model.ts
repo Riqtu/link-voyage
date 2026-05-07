@@ -51,6 +51,18 @@ export class TripReceiptLine {
 export const TripReceiptLineSchema =
   SchemaFactory.createForClass(TripReceiptLine);
 
+@Schema({ _id: false })
+export class TripReceiptExternalParticipant {
+  @Prop({ required: true, trim: true })
+  id!: string;
+
+  @Prop({ required: true, trim: true })
+  name!: string;
+}
+
+export const TripReceiptExternalParticipantSchema =
+  SchemaFactory.createForClass(TripReceiptExternalParticipant);
+
 @Schema({ timestamps: true })
 export class TripReceipt {
   @Prop({ type: Types.ObjectId, ref: 'Trip', required: true, index: true })
@@ -73,6 +85,10 @@ export class TripReceipt {
 
   @Prop({ type: [TripReceiptLineSchema], default: [] })
   lineItems!: TripReceiptLine[];
+
+  /** Участники чека, которых нет в составе поездки (локально для этого чека). */
+  @Prop({ type: [TripReceiptExternalParticipantSchema], default: [] })
+  externalParticipants!: TripReceiptExternalParticipant[];
 
   /**
    * Участники, которые отметили перевод своей доли оплатившему чек

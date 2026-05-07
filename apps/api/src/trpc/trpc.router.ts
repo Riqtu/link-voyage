@@ -16,7 +16,7 @@ import {
   promoteListedAdminIfNeeded,
   resolveSystemRole,
 } from '../auth/system-admin';
-import { getUsdRubRateFromCbr } from '../forex/cbr-usd-rub';
+import { getRubRateFromCbr, getUsdRubRateFromCbr } from '../forex/cbr-usd-rub';
 import {
   analyzeReceiptImageFromUrl,
   assertTrustedReceiptImageUrl,
@@ -2698,6 +2698,14 @@ export const appRouter = t.router({
         );
 
         const lineItemsRaw = Array.isArray(rec.lineItems) ? rec.lineItems : [];
+        const externalParticipants = Array.isArray(rec.externalParticipants)
+          ? rec.externalParticipants
+              .map((p) => ({
+                id: String(p.id ?? '').trim(),
+                name: String(p.name ?? '').trim(),
+              }))
+              .filter((p) => p.id.length > 0 && p.name.length > 0)
+          : [];
         const lineItems = lineItemsRaw.map((ln) => {
           const id = ln.id;
           const name = ln.name;
@@ -2741,7 +2749,16 @@ export const appRouter = t.router({
         const members = trip.members.map((member) => ({
           userId: member.userId.toString(),
           name: nameByUserId.get(member.userId.toString()) ?? 'Участник',
+          isExternal: false as const,
         }));
+        const membersAll = [
+          ...members,
+          ...externalParticipants.map((p) => ({
+            userId: p.id,
+            name: p.name,
+            isExternal: true as const,
+          })),
+        ];
 
         const paidByUserName =
           nameByUserId.get(rec.paidByUserId.toString()) ?? 'Участник';
@@ -2753,8 +2770,8 @@ export const appRouter = t.router({
         const anyLineSelections = lineItems.some(receiptLineHasSelections);
         /** Если никто ни в одной строке не отмечен — на фронте подскажем деление всего чека на N человек */
         const hypotheticalShareAllEqual =
-          !anyLineSelections && members.length > 0 && totalAmount > 0
-            ? totalAmount / members.length
+          !anyLineSelections && membersAll.length > 0 && totalAmount > 0
+            ? totalAmount / membersAll.length
             : null;
 
         const memberIdSet = new Set(
@@ -2779,7 +2796,8 @@ export const appRouter = t.router({
           currency: rec.currency ?? 'RUB',
           imageUrl: rec.imageUrl ?? null,
           lineItems,
-          members,
+          members: membersAll,
+          externalParticipants,
           shareByMember,
           reimbursedPayerUserIds,
           viewerId: ctx.authUser.sub,
@@ -3025,14 +3043,24 @@ export const appRouter = t.router({
           });
         }
         const memberSet = new Set(trip.members.map((m) => m.userId.toString()));
+        const externalSet = new Set(
+          (Array.isArray(rec.externalParticipants)
+            ? rec.externalParticipants
+            : []
+          )
+            .map((p) => String(p.id ?? '').trim())
+            .filter((id) => id.length > 0),
+        );
+        const allowedUserSet = new Set([...memberSet, ...externalSet]);
 
         rec.lineItems = input.lineItems.map((ln) => {
           const pids =
-            ln.participantUserIds?.filter((pid) => memberSet.has(pid)) ?? [];
+            ln.participantUserIds?.filter((pid) => allowedUserSet.has(pid)) ??
+            [];
 
           let consumptionsRaw =
             ln.consumptions
-              ?.filter((c) => memberSet.has(c.userId))
+              ?.filter((c) => allowedUserSet.has(c.userId))
               .map((c) => ({ userId: c.userId.trim(), qty: c.qty })) ?? [];
 
           if (consumptionsRaw.length === 0 && pids.length > 0) {
@@ -3090,6 +3118,7 @@ export const appRouter = t.router({
         z.object({
           receiptId: z.string(),
           lineItemId: z.string(),
+          userId: z.string().optional(),
           qty: z.number().finite().nonnegative(),
         }),
       )
@@ -3111,8 +3140,40 @@ export const appRouter = t.router({
         );
 
         const uid = ctx.authUser.sub;
-
         await assertTripMemberUserId(rec.tripId.toString(), uid, tripModel);
+        const payerId = rec.paidByUserId.toString();
+        const targetUserId =
+          input.userId && input.userId.length > 0 ? input.userId : uid;
+        const trip = await tripModel.findById(rec.tripId).lean();
+        if (!trip) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Поездка не найдена',
+          });
+        }
+        const memberSet = new Set(trip.members.map((m) => m.userId.toString()));
+        const externalSet = new Set(
+          (Array.isArray(rec.externalParticipants)
+            ? rec.externalParticipants
+            : []
+          )
+            .map((p) => String(p.id ?? '').trim())
+            .filter((id) => id.length > 0),
+        );
+        const allowedUserSet = new Set([...memberSet, ...externalSet]);
+        if (!allowedUserSet.has(targetUserId)) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Пользователь не найден среди участников этого чека',
+          });
+        }
+        if (targetUserId !== uid && uid !== payerId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message:
+              'Только оплативший чек может менять доли других участников',
+          });
+        }
 
         const line = rec.lineItems.find((l) => l.id === input.lineItemId);
         if (!line) {
@@ -3138,12 +3199,12 @@ export const appRouter = t.router({
         };
 
         let next = effectiveConsumptionsFromLine(row).filter(
-          (c) => c.userId !== uid,
+          (c) => c.userId !== targetUserId,
         );
 
         if (input.qty > RECEIPT_LINE_QTY_EPS) {
           next.push({
-            userId: uid,
+            userId: targetUserId,
             qty: Math.round(Number(input.qty) * 1e6) / 1e6,
           });
         }
@@ -3169,7 +3230,27 @@ export const appRouter = t.router({
           });
         }
 
-        if (next.length > 0 && sumQ > lineQty + RECEIPT_LINE_QTY_EPS) {
+        const isSingleQtyLine =
+          Number.isFinite(lineQty) &&
+          lineQty > 0 &&
+          Math.abs(lineQty - 1) < 1e-3;
+        if (isSingleQtyLine && next.length > 0) {
+          const each = Math.round((lineQty / next.length) * 1e6) / 1e6;
+          next = next.map((c) => ({ userId: c.userId, qty: each }));
+          const adjustedSumQ = next.reduce((s, c) => s + c.qty, 0);
+          const delta = Math.round((lineQty - adjustedSumQ) * 1e6) / 1e6;
+          if (Math.abs(delta) > 1e-9) {
+            const idx = next.findIndex((c) => c.userId === targetUserId);
+            const fixIdx = idx >= 0 ? idx : 0;
+            next[fixIdx] = {
+              userId: next[fixIdx]!.userId,
+              qty: Math.max(
+                0,
+                Math.round((next[fixIdx]!.qty + delta) * 1e6) / 1e6,
+              ),
+            };
+          }
+        } else if (next.length > 0 && sumQ > lineQty + RECEIPT_LINE_QTY_EPS) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `Уже набрано ${sumQ.toFixed(3)}, а по чеку максимум ${lineQty}`,
@@ -3185,7 +3266,7 @@ export const appRouter = t.router({
         return { success: true as const };
       }),
     toggleReimbursedPayer: protectedProcedure
-      .input(z.object({ receiptId: z.string() }))
+      .input(z.object({ receiptId: z.string(), userId: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
         const { tripModel, tripReceiptModel } = ctx.models;
 
@@ -3205,26 +3286,57 @@ export const appRouter = t.router({
 
         const uid = ctx.authUser.sub;
 
-        if (rec.paidByUserId.toString() === uid) {
+        await assertTripMemberUserId(rec.tripId.toString(), uid, tripModel);
+        const payerId = rec.paidByUserId.toString();
+        const targetUserId =
+          input.userId && input.userId.length > 0 ? input.userId : uid;
+        const trip = await tripModel.findById(rec.tripId).lean();
+        if (!trip) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Поездка не найдена',
+          });
+        }
+        const memberSet = new Set(trip.members.map((m) => m.userId.toString()));
+        const externalSet = new Set(
+          (Array.isArray(rec.externalParticipants)
+            ? rec.externalParticipants
+            : []
+          )
+            .map((p) => String(p.id ?? '').trim())
+            .filter((id) => id.length > 0),
+        );
+        const allowedUserSet = new Set([...memberSet, ...externalSet]);
+        if (!allowedUserSet.has(targetUserId)) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Пользователь не найден среди участников этого чека',
+          });
+        }
+        if (targetUserId !== uid && uid !== payerId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Только оплативший чек может отмечать переводы за других',
+          });
+        }
+        if (targetUserId === payerId) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message:
-              'Вы оплатили чек — для вас отметка «перевёл долю» не используется',
+              'Для оплатившего чек отметка «перевёл долю» не используется',
           });
         }
-
-        await assertTripMemberUserId(rec.tripId.toString(), uid, tripModel);
 
         const arr = (
           Array.isArray(rec.reimbursedPayerUserIds)
             ? rec.reimbursedPayerUserIds
             : []
         ).map(String);
-        const j = arr.indexOf(uid);
+        const j = arr.indexOf(targetUserId);
         if (j >= 0) {
           arr.splice(j, 1);
         } else {
-          arr.push(uid);
+          arr.push(targetUserId);
         }
 
         rec.reimbursedPayerUserIds = arr;
@@ -3232,8 +3344,76 @@ export const appRouter = t.router({
 
         return { success: true as const };
       }),
+    addExternalParticipant: protectedProcedure
+      .input(
+        z.object({
+          receiptId: z.string(),
+          name: z.string().trim().min(2).max(80),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { tripModel, tripReceiptModel } = ctx.models;
+        const rec = await tripReceiptModel.findById(input.receiptId);
+        if (!rec) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Чек не найден',
+          });
+        }
+        await assertTripMemberAccess(
+          rec.tripId.toString(),
+          ctx.authUser.sub,
+          tripModel,
+        );
+        if (rec.paidByUserId.toString() !== ctx.authUser.sub) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Добавлять внешних участников может только оплативший чек',
+          });
+        }
+        const normalizedName = input.name.trim().replace(/\s+/g, ' ');
+        const ext = Array.isArray(rec.externalParticipants)
+          ? rec.externalParticipants
+          : [];
+        if (
+          ext.some(
+            (p) =>
+              String(p.name).toLowerCase() === normalizedName.toLowerCase(),
+          )
+        ) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Такой участник уже добавлен',
+          });
+        }
+        const id = `ext_${new Types.ObjectId().toString()}`;
+        rec.externalParticipants = [...ext, { id, name: normalizedName }];
+        await rec.save();
+        return { id, name: normalizedName };
+      }),
   }),
   forex: t.router({
+    rubRate: publicProcedure
+      .input(z.object({ currency: z.string().trim().length(3) }))
+      .query(async ({ input }) => {
+        try {
+          const { rubPerUnit, quoteDate, currency } = await getRubRateFromCbr(
+            input.currency,
+          );
+          return {
+            ok: true as const,
+            currency,
+            rubPerUnit,
+            quoteDate,
+            source: 'cbr_rf' as const,
+          };
+        } catch {
+          return {
+            ok: false as const,
+            message: `Не удалось загрузить курс ${input.currency.toUpperCase()}/RUB`,
+          };
+        }
+      }),
     usdRubRate: publicProcedure.query(async () => {
       try {
         const { rubPerUsd, quoteDate } = await getUsdRubRateFromCbr();

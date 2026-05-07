@@ -24,6 +24,13 @@ function formatMoney(n: number, currency: string): string {
   })} ${currency}`;
 }
 
+function formatRub(n: number): string {
+  return `${n.toLocaleString("ru-RU", {
+    minimumFractionDigits: n % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })} RUB`;
+}
+
 /** Сохранить порции на сервер через столько мс после последнего набора в поле */
 const QTY_COMMIT_DEBOUNCE_MS = 480;
 
@@ -60,7 +67,10 @@ export default function ReceiptDetailPage() {
   const [savingLineItemId, setSavingLineItemId] = useState<string | null>(null);
   const [removeBusy, setRemoveBusy] = useState(false);
   const [reimbursedBusy, setReimbursedBusy] = useState(false);
+  const [addParticipantBusy, setAddParticipantBusy] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [rubPerUnit, setRubPerUnit] = useState<number | null>(null);
+  const [rubQuoteDate, setRubQuoteDate] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const qtyCommitTimersRef = useRef<
     Partial<Record<string, ReturnType<typeof setTimeout>>>
@@ -108,6 +118,23 @@ export default function ReceiptDetailPage() {
   useEffect(() => {
     void loadReceipt();
   }, [loadReceipt]);
+
+  useEffect(() => {
+    if (!data) return;
+    let cancelled = false;
+    const api = getApiClient();
+    const currency = (data.currency || "RUB").toUpperCase();
+    setRubPerUnit(null);
+    setRubQuoteDate(null);
+    void api.forex.rubRate.query({ currency }).then((res) => {
+      if (cancelled || !res.ok) return;
+      setRubPerUnit(res.rubPerUnit);
+      setRubQuoteDate(res.quoteDate);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [data?.currency]);
 
   useEffect(() => {
     const pending = qtyCommitTimersRef.current;
@@ -204,6 +231,7 @@ export default function ReceiptDetailPage() {
     lineQty: number,
     raw: string,
     viewerId: string,
+    targetUserId?: string,
   ) {
     if (!data) return;
 
@@ -212,12 +240,13 @@ export default function ReceiptDetailPage() {
     if (n > lineQty) n = lineQty;
     n = Math.round(n * 1e6) / 1e6;
 
+    const uid = targetUserId ?? viewerId;
     const line = data.lineItems.find((l) => l.id === lineItemId);
-    const prev = line ? viewerQtyOnLine(line, viewerId) : 0;
+    const prev = line ? viewerQtyOnLine(line, uid) : 0;
     if (Math.abs(n - prev) < 1e-9) return;
 
     const before = cloneReceipt(data);
-    setData(patchConsumptionOptimistic(data, lineItemId, viewerId, n));
+    setData(patchConsumptionOptimistic(data, lineItemId, uid, n));
     setSavingLineItemId(lineItemId);
     setError(null);
     try {
@@ -225,6 +254,7 @@ export default function ReceiptDetailPage() {
       await api.tripReceipt.setLineConsumption.mutate({
         receiptId,
         lineItemId,
+        ...(uid !== viewerId ? { userId: uid } : {}),
         qty: n,
       });
       await refreshReceipt();
@@ -240,15 +270,17 @@ export default function ReceiptDetailPage() {
     lineItemId: string,
     lineQty: number,
     viewerId: string,
+    targetUserId?: string,
   ) {
     if (!data) return;
 
+    const uid = targetUserId ?? viewerId;
     const line = data.lineItems.find((l) => l.id === lineItemId);
-    const prev = line ? viewerQtyOnLine(line, viewerId) : 0;
+    const prev = line ? viewerQtyOnLine(line, uid) : 0;
     const next = prev > 1e-9 ? 0 : Math.min(1, Math.max(0, lineQty));
 
     const before = cloneReceipt(data);
-    setData(patchConsumptionOptimistic(data, lineItemId, viewerId, next));
+    setData(patchConsumptionOptimistic(data, lineItemId, uid, next));
     setSavingLineItemId(lineItemId);
     setError(null);
     try {
@@ -256,6 +288,7 @@ export default function ReceiptDetailPage() {
       await api.tripReceipt.setLineConsumption.mutate({
         receiptId,
         lineItemId,
+        ...(uid !== viewerId ? { userId: uid } : {}),
         qty: next,
       });
       await refreshReceipt();
@@ -267,21 +300,45 @@ export default function ReceiptDetailPage() {
     }
   }
 
-  async function toggleReimbursed() {
+  async function toggleReimbursed(targetUserId?: string) {
     if (!data) return;
+    const uid = targetUserId ?? data.viewerId;
     const before = cloneReceipt(data);
-    setData(patchReimbursedOptimistic(data, data.viewerId));
+    setData(patchReimbursedOptimistic(data, uid));
     setReimbursedBusy(true);
     setError(null);
     try {
       const api = getApiClient();
-      await api.tripReceipt.toggleReimbursedPayer.mutate({ receiptId });
+      await api.tripReceipt.toggleReimbursedPayer.mutate({
+        receiptId,
+        ...(targetUserId ? { userId: targetUserId } : {}),
+      });
       await refreshReceipt();
     } catch (e) {
       setData(before);
       setError(e instanceof Error ? e.message : "Не удалось сохранить отметку");
     } finally {
       setReimbursedBusy(false);
+    }
+  }
+
+  async function addExternalParticipant() {
+    if (!data || !viewerIsPayer) return;
+    const raw = window.prompt("Имя участника вне поездки");
+    const name = (raw ?? "").trim();
+    if (name.length < 2) return;
+    setAddParticipantBusy(true);
+    setError(null);
+    try {
+      const api = getApiClient();
+      await api.tripReceipt.addExternalParticipant.mutate({ receiptId, name });
+      await refreshReceipt();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Не удалось добавить участника",
+      );
+    } finally {
+      setAddParticipantBusy(false);
     }
   }
 
@@ -311,6 +368,14 @@ export default function ReceiptDetailPage() {
         .length
     : 0;
   const receiptLinesTotal = data?.lineItems.length ?? 0;
+  const viewerIsPayer = data ? data.viewerId === data.paidByUserId : false;
+  const currencyCode = data?.currency?.toUpperCase() ?? "RUB";
+  const canConvertToRub = rubPerUnit !== null;
+  const shouldShowRubInfo = currencyCode !== "RUB";
+  function toRub(amount: number): number | null {
+    if (rubPerUnit !== null) return amount * rubPerUnit;
+    return null;
+  }
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl px-6 py-10">
@@ -372,9 +437,7 @@ export default function ReceiptDetailPage() {
           <section className="mt-8 rounded-2xl border bg-card p-6 shadow-sm">
             <h2 className="text-sm font-semibold">Фото чека</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Загрузите чёткий снимок. Для распознавания нужны{" "}
-              <strong className="text-foreground">GEMINI_API_KEY</strong> и
-              поддержка Gemini на бэкенде.
+              Загрузите чёткий снимок
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button
@@ -426,23 +489,18 @@ export default function ReceiptDetailPage() {
 
           <section className="mt-8 rounded-2xl border bg-card p-6 shadow-sm">
             <h2 className="text-sm font-semibold">Позиции и ваш выбор</h2>
-            <p className="mt-1 max-w-[50rem] text-xs text-muted-foreground">
-              Если в позиции количество 1 — галочка «участвую». Иначе укажите
-              порции: сумма строки делится как (ваши порции / количество в
-              чеке). Число в поле уходит на сервер примерно через{" "}
-              <strong className="text-foreground font-medium">
-                {(QTY_COMMIT_DEBOUNCE_MS / 1000).toLocaleString("ru-RU", {
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: 1,
-                })}{" "}
-                с
-              </strong>{" "}
-              после последнего ввода или сразу по{" "}
-              <strong className="text-foreground font-medium">Enter</strong> /
-              клику вне поля. После отправки суммы пересчитываются на экране
-              сразу (до ответа сервера), затем сверяются с ним — при ошибке сети
-              может быть откат.
-            </p>
+
+            {shouldShowRubInfo ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {canConvertToRub
+                  ? `Суммы в RUB показаны ориентировочно по курсу ЦБ РФ${
+                      rubQuoteDate
+                        ? ` от ${new Date(rubQuoteDate).toLocaleDateString("ru-RU")}`
+                        : ""
+                    }.`
+                  : `Конвертация в RUB для валюты ${currencyCode} пока не поддержана.`}
+              </p>
+            ) : null}
 
             {data.lineItems.length === 0 ? (
               <p className="mt-6 text-sm text-muted-foreground">
@@ -451,18 +509,26 @@ export default function ReceiptDetailPage() {
               </p>
             ) : (
               <>
-                <div className="mt-6 overflow-x-auto rounded-lg border">
+                <div className="mt-6 overflow-x-auto rounded-xl border border-border/60 bg-card/40">
                   <table className="w-full min-w-[36rem] text-left text-sm">
-                    <thead className="border-b bg-muted/40">
+                    <thead className="border-b border-border/60 bg-muted/25">
                       <tr>
-                        <th className="px-3 py-2 font-medium">Позиция</th>
-                        <th className="px-3 py-2 font-medium">Кол-во</th>
-                        <th className="px-3 py-2 font-medium">Цена ×1</th>
-                        <th className="px-3 py-2 font-medium">Сумма строки</th>
-                        <th className="px-3 py-2 font-medium">
+                        <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Позиция
+                        </th>
+                        <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Кол-во
+                        </th>
+                        <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Цена ×1
+                        </th>
+                        <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Сумма строки
+                        </th>
+                        <th className="px-3 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           Порции / участие
                         </th>
-                        <th className="hidden px-3 py-2 font-medium md:table-cell">
+                        <th className="hidden px-3 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground md:table-cell">
                           Кто сколько
                         </th>
                       </tr>
@@ -491,76 +557,127 @@ export default function ReceiptDetailPage() {
                               savingLineItemId === line.id && "bg-muted/50",
                             )}
                           >
-                            <td className="px-3 py-2 align-top font-medium">
+                            <td className="px-3 py-2.5 align-top font-medium">
                               {line.name}
                             </td>
-                            <td className="px-3 py-2 align-top">
+                            <td className="px-3 py-2.5 align-top">
                               <div>{line.qty}</div>
                               {denom > 1e-9 ? (
-                                <div className="mt-0.5 text-xs text-muted-foreground">
-                                  набрано{" "}
-                                  <span className="tabular-nums text-foreground">
-                                    {line.consumedQtyTotal}
-                                  </span>{" "}
-                                  из {line.qty}
+                                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                  <span className="inline-flex ">
+                                    <span className="tabular-nums text-foreground whitespace-nowrap">
+                                      {line.consumedQtyTotal}/{line.qty}
+                                    </span>{" "}
+                                  </span>
                                 </div>
                               ) : null}
                             </td>
-                            <td className="px-3 py-2 align-top">
+                            <td className="px-3 py-2.5 align-top">
                               {line.unitPrice !== undefined
                                 ? formatMoney(line.unitPrice, data.currency)
                                 : "—"}
                             </td>
-                            <td className="px-3 py-2 align-top">
-                              {formatMoney(line.lineTotal, data.currency)}
+                            <td className="px-3 py-2.5 align-top">
+                              <div className="font-medium">
+                                {formatMoney(line.lineTotal, data.currency)}
+                              </div>
+                              {canConvertToRub ? (
+                                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                  ≈ {formatRub(toRub(line.lineTotal) ?? 0)}
+                                </div>
+                              ) : null}
                               {viewerShareApprox !== null ? (
-                                <div className="text-xs text-muted-foreground">
-                                  вам ≈{" "}
+                                <div className="mt-1 text-[11px] text-muted-foreground">
+                                  вам <br /> ≈&nbsp;
                                   {formatMoney(
                                     viewerShareApprox,
                                     data.currency,
                                   )}
+                                  {canConvertToRub ? (
+                                    <span className="ml-1 inline-flex whitespace-nowrap">
+                                      (≈&nbsp;
+                                      {formatRub(toRub(viewerShareApprox) ?? 0)}
+                                      )
+                                    </span>
+                                  ) : null}
                                 </div>
                               ) : null}
                             </td>
-                            <td className="px-3 py-2 align-middle">
+                            <td className="px-3 py-2.5 align-middle">
                               {isSingleQuantityLine(line.qty) ? (
-                                <label
-                                  className={cn(
-                                    "flex cursor-pointer items-center gap-2",
-                                    savingLineItemId === line.id &&
-                                      "cursor-wait opacity-90",
-                                  )}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    className="size-4 rounded border"
-                                    checked={viewerQty > 1e-9}
-                                    disabled={savingLineItemId === line.id}
-                                    aria-busy={
-                                      savingLineItemId === line.id
-                                        ? true
-                                        : undefined
-                                    }
-                                    aria-label={`Участвую в «${line.name}»`}
-                                    onChange={() =>
-                                      void toggleSinglePortion(
-                                        line.id,
-                                        line.qty,
-                                        data.viewerId,
-                                      )
-                                    }
-                                  />
-                                  {savingLineItemId === line.id ? (
-                                    <Loader2
-                                      className="size-4 shrink-0 animate-spin text-muted-foreground"
-                                      aria-hidden
+                                viewerIsPayer ? (
+                                  <div className="flex max-w-[14rem] flex-wrap gap-1">
+                                    {data.members.map((m) => {
+                                      const active =
+                                        viewerQtyOnLine(line, m.userId) > 1e-9;
+                                      return (
+                                        <button
+                                          key={`${line.id}-${m.userId}`}
+                                          type="button"
+                                          disabled={
+                                            savingLineItemId === line.id
+                                          }
+                                          className={cn(
+                                            "rounded-md border px-2 py-0.5 text-xs transition",
+                                            active
+                                              ? "border-primary/40 bg-primary/10 text-foreground"
+                                              : "border-border bg-background text-muted-foreground hover:bg-muted/50",
+                                            savingLineItemId === line.id &&
+                                              "cursor-wait opacity-80",
+                                          )}
+                                          onClick={() =>
+                                            void toggleSinglePortion(
+                                              line.id,
+                                              line.qty,
+                                              data.viewerId,
+                                              m.userId,
+                                            )
+                                          }
+                                        >
+                                          {m.name}
+                                          {m.isExternal ? " • вне поездки" : ""}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <label
+                                    className={cn(
+                                      "flex cursor-pointer items-center gap-2",
+                                      savingLineItemId === line.id &&
+                                        "cursor-wait opacity-90",
+                                    )}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      className="size-4 rounded border"
+                                      checked={viewerQty > 1e-9}
+                                      disabled={savingLineItemId === line.id}
+                                      aria-busy={
+                                        savingLineItemId === line.id
+                                          ? true
+                                          : undefined
+                                      }
+                                      aria-label={`Участвую в «${line.name}»`}
+                                      onChange={() =>
+                                        void toggleSinglePortion(
+                                          line.id,
+                                          line.qty,
+                                          data.viewerId,
+                                        )
+                                      }
                                     />
-                                  ) : null}
-                                  <span className="text-xs text-muted-foreground">
-                                    участвую
-                                  </span>
-                                </label>
+                                    {savingLineItemId === line.id ? (
+                                      <Loader2
+                                        className="size-4 shrink-0 animate-spin text-muted-foreground"
+                                        aria-hidden
+                                      />
+                                    ) : null}
+                                    <span className="text-xs text-muted-foreground">
+                                      участвую
+                                    </span>
+                                  </label>
+                                )
                               ) : (
                                 <div className="flex max-w-[8rem] flex-col gap-1">
                                   <input
@@ -635,7 +752,7 @@ export default function ReceiptDetailPage() {
                                 </div>
                               )}
                             </td>
-                            <td className="hidden px-3 py-2 align-top text-xs md:table-cell">
+                            <td className="hidden px-3 py-2.5 align-top text-xs md:table-cell">
                               {entryCount === 0 ? (
                                 <span className="text-muted-foreground">
                                   никто не указал
@@ -667,11 +784,27 @@ export default function ReceiptDetailPage() {
                   <strong className="text-foreground">
                     {formatMoney(data.totalAmount, data.currency)}
                   </strong>
+                  {canConvertToRub ? (
+                    <>
+                      {" "}
+                      <span className="text-[11px]">
+                        (≈ {formatRub(toRub(data.totalAmount) ?? 0)})
+                      </span>
+                    </>
+                  ) : null}
                   <br />
                   Ваша сумма по строкам с долями:{" "}
                   <strong className="text-primary">
                     {formatMoney(viewerShare, data.currency)}
                   </strong>
+                  {canConvertToRub ? (
+                    <>
+                      {" "}
+                      <span className="text-[11px] text-muted-foreground">
+                        (≈ {formatRub(toRub(viewerShare) ?? 0)})
+                      </span>
+                    </>
+                  ) : null}
                   <br />
                   Строк выбрано у вас:{" "}
                   <strong className="tabular-nums text-foreground">
@@ -704,7 +837,7 @@ export default function ReceiptDetailPage() {
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   По участникам (только строки с указанными долями)
                 </h3>
-                {data.viewerId !== data.paidByUserId ? (
+                {!viewerIsPayer ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -729,27 +862,42 @@ export default function ReceiptDetailPage() {
                       ? "Снять «скинул(а)»"
                       : "Я скинул(а)"}
                   </Button>
-                ) : null}
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={addParticipantBusy || refreshing}
+                      onClick={() => void addExternalParticipant()}
+                    >
+                      {addParticipantBusy ? "Добавляем…" : "Добавить участника"}
+                    </Button>
+                  </div>
+                )}
               </div>
-              <p className="mt-1 max-w-xl text-[0.7rem] text-muted-foreground">
-                Отметка только для вашей учётки — что перевели оплатившему чек.
-                На расчёт долей по позициям не влияет.
-              </p>
+
               <div className="mt-3 hidden grid-cols-[minmax(0,1fr)_7rem_auto] gap-3 border-b pb-1 text-[0.65rem] uppercase tracking-wide text-muted-foreground sm:grid">
                 <span>Участник</span>
                 <span className="text-right">Перевод</span>
                 <span className="text-right">Доля</span>
               </div>
-              <ul className="mt-2 grid gap-1 text-sm">
+              <ul className="mt-2 grid text-sm">
                 {data.members.map((m) => {
                   const isPayer = m.userId === data.paidByUserId;
                   const reimbursed = data.reimbursedPayerUserIds.includes(
                     m.userId,
                   );
+                  const canToggleReimbursed =
+                    !isPayer && (viewerIsPayer || m.userId === data.viewerId);
                   return (
                     <li
                       key={m.userId}
-                      className="grid grid-cols-1 gap-2 border-border border-t py-2 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_7rem_auto] sm:items-center sm:gap-3"
+                      className={cn(
+                        "grid grid-cols-1 gap-2 border-border border-t py-2 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_7rem_auto] sm:items-center sm:gap-3",
+                        reimbursed &&
+                          " bg-emerald-500/8 px-2  dark:bg-emerald-500/12",
+                      )}
                     >
                       <span className="font-medium">
                         {m.name}
@@ -757,18 +905,46 @@ export default function ReceiptDetailPage() {
                           <span className="ml-1.5 font-normal text-muted-foreground text-xs">
                             (оплатил чек)
                           </span>
+                        ) : m.isExternal ? (
+                          <span className="ml-1.5 font-normal text-muted-foreground text-xs">
+                            (вне поездки)
+                          </span>
                         ) : null}
                       </span>
                       <span className="text-right text-xs sm:order-none">
                         {isPayer ? (
                           <span className="text-muted-foreground">—</span>
-                        ) : reimbursed ? (
-                          <span className="inline-flex items-center justify-end gap-1 font-medium text-emerald-700 dark:text-emerald-500">
-                            <Check className="size-3.5 shrink-0" aria-hidden />
-                            скинул(а)
-                          </span>
-                        ) : (
+                        ) : !canToggleReimbursed ? (
                           <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={reimbursed ? "secondary" : "outline"}
+                            disabled={
+                              reimbursedBusy ||
+                              refreshing ||
+                              Boolean(savingLineItemId)
+                            }
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() =>
+                              void toggleReimbursed(
+                                viewerIsPayer ? m.userId : undefined,
+                              )
+                            }
+                          >
+                            {reimbursed ? (
+                              <>
+                                <Check
+                                  className="size-3.5 shrink-0"
+                                  aria-hidden
+                                />
+                                Отмечено
+                              </>
+                            ) : (
+                              "Отметить"
+                            )}
+                          </Button>
                         )}
                       </span>
                       <span className="text-right font-medium tabular-nums">
@@ -776,6 +952,15 @@ export default function ReceiptDetailPage() {
                           data.shareByMember[m.userId] ?? 0,
                           data.currency,
                         )}
+                        {canConvertToRub ? (
+                          <span className="ml-1 text-[11px] font-normal text-muted-foreground">
+                            (≈{" "}
+                            {formatRub(
+                              toRub(data.shareByMember[m.userId] ?? 0) ?? 0,
+                            )}
+                            )
+                          </span>
+                        ) : null}
                       </span>
                     </li>
                   );

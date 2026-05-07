@@ -544,6 +544,18 @@ export type ApiClient = {
     };
   };
   forex: {
+    rubRate: {
+      query(input: { currency: string }): Promise<
+        | {
+            ok: true;
+            currency: string;
+            rubPerUnit: number;
+            quoteDate: string;
+            source: "cbr_rf";
+          }
+        | { ok: false; message: string }
+      >;
+    };
     usdRubRate: {
       query(): Promise<
         | {
@@ -670,7 +682,8 @@ export type ApiClient = {
           consumptions: { userId: string; qty: number }[];
           consumedQtyTotal: number;
         }[];
-        members: { userId: string; name: string }[];
+        members: { userId: string; name: string; isExternal?: boolean }[];
+        externalParticipants: { id: string; name: string }[];
         shareByMember: Record<string, number>;
         reimbursedPayerUserIds: string[];
         viewerId: string;
@@ -729,11 +742,21 @@ export type ApiClient = {
       mutate(input: {
         receiptId: string;
         lineItemId: string;
+        userId?: string;
         qty: number;
       }): Promise<{ success: true }>;
     };
     toggleReimbursedPayer: {
-      mutate(input: { receiptId: string }): Promise<{ success: true }>;
+      mutate(input: {
+        receiptId: string;
+        userId?: string;
+      }): Promise<{ success: true }>;
+    };
+    addExternalParticipant: {
+      mutate(input: { receiptId: string; name: string }): Promise<{
+        id: string;
+        name: string;
+      }>;
     };
   };
   s3: {
