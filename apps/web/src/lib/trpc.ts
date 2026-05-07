@@ -669,6 +669,7 @@ export type ApiClient = {
         title: string;
         description: string;
         paidByUserId: string;
+        createdByUserId: string;
         paidByUserName: string;
         currency: string;
         imageUrl: string | null;
@@ -756,6 +757,11 @@ export type ApiClient = {
       mutate(input: { receiptId: string; name: string }): Promise<{
         id: string;
         name: string;
+      }>;
+    };
+    removeExternalParticipant: {
+      mutate(input: { receiptId: string; userId: string }): Promise<{
+        success: true;
       }>;
     };
   };

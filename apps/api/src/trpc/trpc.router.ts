@@ -2792,6 +2792,7 @@ export const appRouter = t.router({
           title: rec.title,
           description: rec.description ?? '',
           paidByUserId: rec.paidByUserId.toString(),
+          createdByUserId: rec.createdBy.toString(),
           paidByUserName,
           currency: rec.currency ?? 'RUB',
           imageUrl: rec.imageUrl ?? null,
@@ -3142,6 +3143,8 @@ export const appRouter = t.router({
         const uid = ctx.authUser.sub;
         await assertTripMemberUserId(rec.tripId.toString(), uid, tripModel);
         const payerId = rec.paidByUserId.toString();
+        const creatorId = rec.createdBy.toString();
+        const canManage = uid === payerId || uid === creatorId;
         const targetUserId =
           input.userId && input.userId.length > 0 ? input.userId : uid;
         const trip = await tripModel.findById(rec.tripId).lean();
@@ -3167,11 +3170,11 @@ export const appRouter = t.router({
             message: 'Пользователь не найден среди участников этого чека',
           });
         }
-        if (targetUserId !== uid && uid !== payerId) {
+        if (targetUserId !== uid && !canManage) {
           throw new TRPCError({
             code: 'FORBIDDEN',
             message:
-              'Только оплативший чек может менять доли других участников',
+              'Только оплативший или создатель чека может менять доли других участников',
           });
         }
 
@@ -3288,6 +3291,8 @@ export const appRouter = t.router({
 
         await assertTripMemberUserId(rec.tripId.toString(), uid, tripModel);
         const payerId = rec.paidByUserId.toString();
+        const creatorId = rec.createdBy.toString();
+        const canManage = uid === payerId || uid === creatorId;
         const targetUserId =
           input.userId && input.userId.length > 0 ? input.userId : uid;
         const trip = await tripModel.findById(rec.tripId).lean();
@@ -3313,10 +3318,11 @@ export const appRouter = t.router({
             message: 'Пользователь не найден среди участников этого чека',
           });
         }
-        if (targetUserId !== uid && uid !== payerId) {
+        if (targetUserId !== uid && !canManage) {
           throw new TRPCError({
             code: 'FORBIDDEN',
-            message: 'Только оплативший чек может отмечать переводы за других',
+            message:
+              'Только оплативший или создатель чека может отмечать переводы за других',
           });
         }
         if (targetUserId === payerId) {
@@ -3365,10 +3371,13 @@ export const appRouter = t.router({
           ctx.authUser.sub,
           tripModel,
         );
-        if (rec.paidByUserId.toString() !== ctx.authUser.sub) {
+        const payerId = rec.paidByUserId.toString();
+        const creatorId = rec.createdBy.toString();
+        if (ctx.authUser.sub !== payerId && ctx.authUser.sub !== creatorId) {
           throw new TRPCError({
             code: 'FORBIDDEN',
-            message: 'Добавлять внешних участников может только оплативший чек',
+            message:
+              'Добавлять внешних участников может только оплативший или создатель чека',
           });
         }
         const normalizedName = input.name.trim().replace(/\s+/g, ' ');
@@ -3390,6 +3399,87 @@ export const appRouter = t.router({
         rec.externalParticipants = [...ext, { id, name: normalizedName }];
         await rec.save();
         return { id, name: normalizedName };
+      }),
+    removeExternalParticipant: protectedProcedure
+      .input(
+        z.object({
+          receiptId: z.string(),
+          userId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { tripModel, tripReceiptModel } = ctx.models;
+        const rec = await tripReceiptModel.findById(input.receiptId);
+        if (!rec) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Чек не найден',
+          });
+        }
+        await assertTripMemberAccess(
+          rec.tripId.toString(),
+          ctx.authUser.sub,
+          tripModel,
+        );
+        const payerId = rec.paidByUserId.toString();
+        const creatorId = rec.createdBy.toString();
+        if (ctx.authUser.sub !== payerId && ctx.authUser.sub !== creatorId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message:
+              'Удалять внешних участников может только оплативший или создатель чека',
+          });
+        }
+
+        const ext = Array.isArray(rec.externalParticipants)
+          ? rec.externalParticipants
+          : [];
+        const had = ext.some((p) => String(p.id) === input.userId);
+        if (!had) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Внешний участник не найден',
+          });
+        }
+
+        rec.externalParticipants = ext.filter(
+          (p) => String(p.id) !== input.userId,
+        );
+
+        rec.reimbursedPayerUserIds = (
+          Array.isArray(rec.reimbursedPayerUserIds)
+            ? rec.reimbursedPayerUserIds
+            : []
+        )
+          .map((id) => String(id))
+          .filter((id) => id !== input.userId);
+
+        rec.lineItems = (Array.isArray(rec.lineItems) ? rec.lineItems : []).map(
+          (ln) => {
+            const participantUserIds = Array.isArray(ln.participantUserIds)
+              ? ln.participantUserIds
+                  .map((id) => String(id))
+                  .filter((id) => id !== input.userId)
+              : [];
+            const consumptions = Array.isArray(ln.consumptions)
+              ? ln.consumptions
+                  .map((c) => ({
+                    userId: String(c.userId),
+                    qty: Number(c.qty),
+                  }))
+                  .filter((c) => c.userId !== input.userId)
+              : [];
+            return {
+              ...ln,
+              participantUserIds,
+              consumptions,
+            };
+          },
+        );
+
+        rec.markModified('lineItems');
+        await rec.save();
+        return { success: true as const };
       }),
   }),
   forex: t.router({

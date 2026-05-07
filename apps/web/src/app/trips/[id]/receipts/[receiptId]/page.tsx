@@ -8,7 +8,7 @@ import {
   patchReimbursedOptimistic,
 } from "@/lib/receipt-shares-preview";
 import { cn } from "@/lib/utils";
-import { Check, ChevronLeft, Loader2, Sparkles, X } from "lucide-react";
+import { Check, ChevronLeft, Loader2, Sparkles, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -68,6 +68,10 @@ export default function ReceiptDetailPage() {
   const [removeBusy, setRemoveBusy] = useState(false);
   const [reimbursedBusy, setReimbursedBusy] = useState(false);
   const [addParticipantBusy, setAddParticipantBusy] = useState(false);
+  const [removeParticipantUserId, setRemoveParticipantUserId] = useState<
+    string | null
+  >(null);
+  const [payerSaving, setPayerSaving] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [rubPerUnit, setRubPerUnit] = useState<number | null>(null);
   const [rubQuoteDate, setRubQuoteDate] = useState<string | null>(null);
@@ -323,7 +327,7 @@ export default function ReceiptDetailPage() {
   }
 
   async function addExternalParticipant() {
-    if (!data || !viewerIsPayer) return;
+    if (!data || !viewerCanManageReceipt) return;
     const raw = window.prompt("Имя участника вне поездки");
     const name = (raw ?? "").trim();
     if (name.length < 2) return;
@@ -339,6 +343,27 @@ export default function ReceiptDetailPage() {
       );
     } finally {
       setAddParticipantBusy(false);
+    }
+  }
+
+  async function removeExternalParticipant(userId: string) {
+    if (!data || !viewerCanManageReceipt) return;
+    const member = data.members.find((m) => m.userId === userId);
+    const label = member?.name ?? "этого участника";
+    if (!window.confirm(`Удалить ${label} из чека?`)) return;
+    setRemoveParticipantUserId(userId);
+    setError(null);
+    try {
+      const api = getApiClient();
+      await api.tripReceipt.removeExternalParticipant.mutate({
+        receiptId,
+        userId,
+      });
+      await refreshReceipt();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось удалить участника");
+    } finally {
+      setRemoveParticipantUserId(null);
     }
   }
 
@@ -358,6 +383,29 @@ export default function ReceiptDetailPage() {
     }
   }
 
+  async function changePaidByUser(nextPaidByUserId: string) {
+    if (!data || !viewerCanManageReceipt) return;
+    if (!nextPaidByUserId || nextPaidByUserId === data.paidByUserId) return;
+    setPayerSaving(true);
+    setError(null);
+    try {
+      const api = getApiClient();
+      await api.tripReceipt.update.mutate({
+        receiptId,
+        title: data.title,
+        description: data.description,
+        paidByUserId: nextPaidByUserId,
+      });
+      await refreshReceipt();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Не удалось обновить оплатившего",
+      );
+    } finally {
+      setPayerSaving(false);
+    }
+  }
+
   const viewerShare =
     data && data.viewerId in data.shareByMember
       ? data.shareByMember[data.viewerId]!
@@ -368,7 +416,10 @@ export default function ReceiptDetailPage() {
         .length
     : 0;
   const receiptLinesTotal = data?.lineItems.length ?? 0;
-  const viewerIsPayer = data ? data.viewerId === data.paidByUserId : false;
+  const viewerCanManageReceipt = data
+    ? data.viewerId === data.paidByUserId ||
+      data.viewerId === data.createdByUserId
+    : false;
   const currencyCode = data?.currency?.toUpperCase() ?? "RUB";
   const canConvertToRub = rubPerUnit !== null;
   const shouldShowRubInfo = currencyCode !== "RUB";
@@ -432,6 +483,33 @@ export default function ReceiptDetailPage() {
                 </>
               ) : null}
             </p>
+            {viewerCanManageReceipt ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  Изменить оплатившего:
+                </span>
+                <select
+                  className="h-8 rounded-md border bg-background px-2 text-xs"
+                  value={data.paidByUserId}
+                  disabled={payerSaving || refreshing}
+                  onChange={(e) => void changePaidByUser(e.target.value)}
+                >
+                  {data.members
+                    .filter((m) => !m.isExternal)
+                    .map((m) => (
+                      <option key={m.userId} value={m.userId}>
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+                {payerSaving ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    Сохраняем…
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </header>
 
           <section className="mt-8 rounded-2xl border bg-card p-6 shadow-sm">
@@ -605,7 +683,7 @@ export default function ReceiptDetailPage() {
                             </td>
                             <td className="px-3 py-2.5 align-middle">
                               {isSingleQuantityLine(line.qty) ? (
-                                viewerIsPayer ? (
+                                viewerCanManageReceipt ? (
                                   <div className="flex max-w-[14rem] flex-wrap gap-1">
                                     {data.members.map((m) => {
                                       const active =
@@ -837,7 +915,7 @@ export default function ReceiptDetailPage() {
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   По участникам (только строки с указанными долями)
                 </h3>
-                {!viewerIsPayer ? (
+                {!viewerCanManageReceipt ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -889,7 +967,8 @@ export default function ReceiptDetailPage() {
                     m.userId,
                   );
                   const canToggleReimbursed =
-                    !isPayer && (viewerIsPayer || m.userId === data.viewerId);
+                    !isPayer &&
+                    (viewerCanManageReceipt || m.userId === data.viewerId);
                   return (
                     <li
                       key={m.userId}
@@ -906,9 +985,36 @@ export default function ReceiptDetailPage() {
                             (оплатил чек)
                           </span>
                         ) : m.isExternal ? (
-                          <span className="ml-1.5 font-normal text-muted-foreground text-xs">
-                            (вне поездки)
-                          </span>
+                          <>
+                            <span className="ml-1.5 font-normal text-muted-foreground text-xs">
+                              (вне поездки)
+                            </span>
+                            {viewerCanManageReceipt ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="ml-1 h-6 px-1.5 text-[11px] text-muted-foreground hover:text-destructive"
+                                disabled={
+                                  removeParticipantUserId === m.userId ||
+                                  refreshing
+                                }
+                                onClick={() =>
+                                  void removeExternalParticipant(m.userId)
+                                }
+                                title="Удалить участника из чека"
+                              >
+                                {removeParticipantUserId === m.userId ? (
+                                  <Loader2
+                                    className="size-3.5 animate-spin"
+                                    aria-hidden
+                                  />
+                                ) : (
+                                  <Trash2 className="size-3.5" aria-hidden />
+                                )}
+                              </Button>
+                            ) : null}
+                          </>
                         ) : null}
                       </span>
                       <span className="text-right text-xs sm:order-none">
@@ -929,7 +1035,7 @@ export default function ReceiptDetailPage() {
                             className="h-7 px-2 text-[11px]"
                             onClick={() =>
                               void toggleReimbursed(
-                                viewerIsPayer ? m.userId : undefined,
+                                viewerCanManageReceipt ? m.userId : undefined,
                               )
                             }
                           >
