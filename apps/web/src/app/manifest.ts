@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+import { THEME_COLOR_DARK } from "@/lib/theme-chrome";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Link Voyage",
@@ -7,9 +9,9 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Collaborative trip planning with friends",
     start_url: "/",
     display: "standalone",
-    /** Тёмный фон загрузки standalone: чёрная полоса сверху при #fff и тёмной теме. */
-    background_color: "#171717",
-    theme_color: "#171717",
+    /** Инициализация standalone: тот же тёмный тон, что и в токенах страницы */
+    background_color: THEME_COLOR_DARK,
+    theme_color: THEME_COLOR_DARK,
     icons: [
       {
         src: "/icons/icon.svg",

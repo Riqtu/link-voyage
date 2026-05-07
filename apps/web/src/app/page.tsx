@@ -37,15 +37,15 @@ const steps = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <main className="mx-auto flex w-full max-w-6xl flex-col px-6 pb-16 pt-10 md:px-10">
-        <section className="rounded-3xl border bg-card p-8 text-card-foreground shadow-sm md:p-12">
-          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground">
-            <MapPinned className="h-3.5 w-3.5" />
+        <section className="rounded-3xl border bg-card p-8 md:p-12">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground">
+            <MapPinned className="h-3.5 w-3.5 opacity-75" aria-hidden />
             Link Voyage
           </div>
 
-          <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-tight md:text-5xl">
+          <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-[-0.035em] md:text-[2.75rem] md:leading-[1.08]">
             Планируйте путешествия с друзьями без хаоса в чатах
           </h1>
           <p className="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">
@@ -70,10 +70,15 @@ export default function Home() {
           {features.map((feature) => (
             <article
               key={feature.title}
-              className="rounded-2xl border bg-card p-6 text-card-foreground"
+              className="rounded-2xl border bg-card p-6 text-card-foreground transition-colors hover:border-foreground/12"
             >
-              <feature.icon className="h-5 w-5 text-muted-foreground" />
-              <h2 className="mt-4 text-lg font-medium">{feature.title}</h2>
+              <feature.icon
+                className="h-5 w-5 text-muted-foreground"
+                aria-hidden
+              />
+              <h2 className="font-heading mt-4 text-lg font-semibold tracking-tight">
+                {feature.title}
+              </h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {feature.description}
               </p>
@@ -83,7 +88,7 @@ export default function Home() {
 
         <section className="mt-8 grid gap-6 rounded-3xl border bg-card p-8 md:grid-cols-2 md:items-start">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">
+            <h2 className="font-heading text-2xl font-semibold tracking-tight">
               Как это работает
             </h2>
             <p className="mt-3 text-sm text-muted-foreground">
@@ -101,19 +106,16 @@ export default function Home() {
           </ol>
         </section>
 
-        <section className="mt-8 rounded-3xl border bg-primary px-8 py-10 text-primary-foreground">
-          <h2 className="text-2xl font-semibold tracking-tight">
+        <section className="mt-8 rounded-3xl border bg-muted/50 px-8 py-10 md:px-12">
+          <h2 className="font-heading text-2xl font-semibold tracking-tight">
             Готовы собрать первую поездку?
           </h2>
-          <p className="mt-3 max-w-2xl text-sm/6 text-primary-foreground/80">
+          <p className="mt-3 max-w-2xl text-sm/6 text-muted-foreground">
             Начните с базового маршрута и пригласите друзей. Добавляйте точки на
             карте, голосуйте и держите бюджет под контролем.
           </p>
           <div className="mt-6">
-            <Link
-              className={buttonVariants({ size: "lg", variant: "secondary" })}
-              href="/auth"
-            >
+            <Link className={buttonVariants({ size: "lg" })} href="/auth">
               Начать
             </Link>
           </div>

@@ -12,6 +12,7 @@ import type { AccommodationPreviewImage } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { Dialog } from "@base-ui/react/dialog";
 import {
+  Calculator,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -1030,6 +1031,37 @@ export default function AccommodationsPage() {
     return total / Math.max(1, peopleCount);
   }
 
+  function getPricingModeLabel(mode: Option["pricingMode"]): string {
+    if (mode === "perNight") return "за ночь";
+    if (mode === "perPerson") return "за человека";
+    return "за период";
+  }
+
+  function getPricingModeHint(mode: Option["pricingMode"]): string {
+    if (mode === "perNight") return "Цена рассчитывается за ночь";
+    if (mode === "perPerson") return "Цена рассчитывается за человека";
+    return "Цена рассчитывается за весь период";
+  }
+
+  function getLatestComment(
+    comments: AccommodationCommentRow[],
+  ): AccommodationCommentRow | null {
+    if (comments.length === 0) return null;
+    return comments.reduce((latest, current) =>
+      new Date(current.createdAt).getTime() >
+      new Date(latest.createdAt).getTime()
+        ? current
+        : latest,
+    );
+  }
+
+  function formatCommentTimestamp(dateIso: string): string {
+    return new Date(dateIso).toLocaleString("ru-RU", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  }
+
   const mapCenter = useMemo(() => {
     const firstWithCoords = options.find((item) => item.coordinates);
     if (firstWithCoords?.coordinates) {
@@ -1247,7 +1279,7 @@ export default function AccommodationsPage() {
               else cardRefs.current.delete(item.id);
             }}
             className={cn(
-              "scroll-mt-24 rounded-2xl border bg-card p-5 shadow-sm transition-[box-shadow,opacity] duration-500",
+              "scroll-mt-24 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-[box-shadow,opacity] duration-500 dark:border-border/80 sm:p-5",
               item.noLongerAvailable && "opacity-[0.55]",
               highlightedCardId === item.id &&
                 "ring-2 ring-primary ring-offset-2 ring-offset-background",
@@ -1266,7 +1298,7 @@ export default function AccommodationsPage() {
                     <img
                       src={item.previewImages[0].url}
                       alt=""
-                      className="max-h-44 w-full rounded-lg object-cover"
+                      className="h-44 w-full rounded-lg object-cover"
                       loading="lazy"
                       referrerPolicy="no-referrer"
                     />
@@ -1277,7 +1309,7 @@ export default function AccommodationsPage() {
                   </div>
                 )}
                 {item.previewImages.length > 1 ? (
-                  <div className="mt-2 grid grid-cols-4 gap-2">
+                  <div className="mt-2 grid grid-cols-3 gap-2">
                     {item.previewImages.slice(1, 9).map((image, index) => (
                       <button
                         key={`${item.id}-thumb-${image.url}-${index}`}
@@ -1292,7 +1324,7 @@ export default function AccommodationsPage() {
                         <img
                           src={image.url}
                           alt=""
-                          className="h-14 w-full object-cover"
+                          className="h-14 w-full object-cover md:h-16"
                           loading="lazy"
                           referrerPolicy="no-referrer"
                         />
@@ -1307,13 +1339,13 @@ export default function AccommodationsPage() {
                 ) : null}
               </div>
 
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-3">
                   <div className="min-w-0">
                     <h3 className="min-w-0 text-lg font-semibold leading-snug text-foreground">
                       <button
                         type="button"
-                        className="block w-full max-w-full cursor-pointer rounded px-0.5 text-left font-semibold text-inherit text-pretty decoration-primary underline-offset-4 outline-none transition-colors line-clamp-2 hover:bg-muted/60 hover:text-primary hover:underline focus-visible:bg-muted/60 focus-visible:text-primary focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring"
+                        className="block w-full max-w-full cursor-pointer rounded  text-left font-semibold text-inherit text-pretty decoration-primary underline-offset-4 outline-none transition-colors line-clamp-2 hover:bg-muted/60 hover:text-primary hover:underline focus-visible:bg-muted/60 focus-visible:text-primary focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring"
                         title="Подробный вид варианта"
                         aria-label={`Открыть подробный вид: ${item.title}`}
                         onClick={() => openAccommodationDetail(item)}
@@ -1322,7 +1354,6 @@ export default function AccommodationsPage() {
                       </button>
                     </h3>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <AccommodationStatusBadge status={item.status} />
                       {item.noLongerAvailable ? (
                         <span
                           className="rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground"
@@ -1336,109 +1367,46 @@ export default function AccommodationsPage() {
                           {item.locationLabel}
                         </span>
                       ) : null}
-                      {item.coordinates ? (
-                        <span className="text-xs text-muted-foreground">
-                          {item.coordinates.lat.toFixed(4)},{" "}
-                          {item.coordinates.lng.toFixed(4)}
-                        </span>
-                      ) : null}
                     </div>
                   </div>
 
-                  <div className="flex w-full flex-wrap items-center gap-2 text-xs sm:w-auto sm:justify-end">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs md:justify-end">
                     <button
                       type="button"
-                      className="rounded-full border px-2 py-0.5 text-foreground/90 transition hover:bg-muted"
+                      className="rounded-full bg-muted/25 px-2.5 py-1 text-foreground/90 transition hover:bg-muted/45 dark:bg-white/10 dark:hover:bg-white/15"
                       onClick={() => openVoteModal(item.id)}
                       title="Посмотреть, кто как проголосовал"
                     >
-                      Голоса:{" "}
-                      <span className="font-medium tabular-nums">
-                        {item.upVotes - item.downVotes}
-                      </span>
-                    </button>
-                    {item.rating !== null ? (
-                      <span className="rounded-full border px-2 py-0.5 text-foreground/90">
-                        Рейтинг:{" "}
-                        <span className="font-medium tabular-nums">
-                          {item.rating}
+                      <span className="font-medium">
+                        {item.rating !== null ? (
+                          <>
+                            ★{" "}
+                            <span className="tabular-nums">{item.rating}</span>{" "}
+                            ·{" "}
+                          </>
+                        ) : null}
+                        Голоса{" "}
+                        <span className="tabular-nums">
+                          {item.upVotes - item.downVotes}
                         </span>
                       </span>
-                    ) : null}
+                    </button>
+                    <AccommodationStatusBadge status={item.status} />
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-xl border bg-muted/30 p-3">
-                  {item.price !== null ? (
-                    <>
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <div className="text-sm font-medium">
-                          Общая цена:{" "}
-                          {formatAmount(
-                            calcTotalPrice(item) ?? 0,
-                            item.currency,
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Тип: {item.pricingMode}
-                        </div>
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        На человека ({peopleCount}):{" "}
-                        {calcPerPerson(item) !== null
-                          ? formatAmount(
-                              calcPerPerson(item) ?? 0,
-                              item.currency,
-                            )
-                          : "—"}
-                      </div>
-                      {rubPerUsd !== null &&
-                      isUsdCurrency(item.currency) &&
-                      calcTotalPrice(item) !== null &&
-                      calcPerPerson(item) !== null ? (
-                        <div className="mt-1.5 border-t border-border/60 pt-1.5 text-xs text-muted-foreground">
-                          <div>
-                            ≈{" "}
-                            {formatRubAmount(
-                              (calcTotalPrice(item) ?? 0) * rubPerUsd,
-                            )}{" "}
-                            общая (оценка)
-                          </div>
-                          <div className="mt-0.5">
-                            ≈{" "}
-                            {formatRubAmount(
-                              (calcPerPerson(item) ?? 0) * rubPerUsd,
-                            )}{" "}
-                            на человека (оценка)
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : (
-                    <div className="text-xs text-muted-foreground">
-                      Цена не указана — добавьте вручную.
-                    </div>
-                  )}
-
-                  {item.freeCancellation ? (
-                    <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
-                      Бесплатная отмена
-                    </div>
-                  ) : null}
-                </div>
-
                 {item.amenities.length ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2">
                     {item.amenities.slice(0, 5).map((amenity) => (
                       <span
                         key={amenity}
-                        className="rounded-full border bg-background px-2 py-0.5 text-xs text-muted-foreground"
+                        className="rounded-full bg-muted/35 px-2 py-0.5 text-xs text-muted-foreground/85 dark:bg-white/10 dark:text-foreground/65"
                       >
                         {amenity}
                       </span>
                     ))}
                     {item.amenities.length > 5 ? (
-                      <span className="rounded-full border bg-background px-2 py-0.5 text-xs text-muted-foreground">
+                      <span className="rounded-full bg-muted/35 px-2 py-0.5 text-xs text-muted-foreground/85 dark:bg-white/10 dark:text-foreground/65">
                         +{item.amenities.length - 5}
                       </span>
                     ) : null}
@@ -1446,7 +1414,7 @@ export default function AccommodationsPage() {
                 ) : null}
 
                 {tripRequirements.length ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-3 text-xs text-muted-foreground">
                     Совпадение с требованиями:{" "}
                     {
                       tripRequirements.filter((req) =>
@@ -1459,105 +1427,87 @@ export default function AccommodationsPage() {
                   </p>
                 ) : null}
 
-                {item.previewDescription ? (
-                  <p className="mt-3 line-clamp-3 text-sm text-muted-foreground">
-                    {item.previewDescription}
-                  </p>
-                ) : null}
-
-                <div className="mt-4 rounded-xl border bg-card p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-baseline gap-2">
-                      <p className="text-sm font-medium">
-                        Комментарии участников
-                      </p>
-                      {(commentsByOption[item.id]?.length ?? 0) > 0 ? (
-                        <span className="text-xs tabular-nums text-muted-foreground">
-                          {commentsByOption[item.id]!.length}
-                        </span>
-                      ) : null}
-                    </div>
-                    {canCollaborate ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0"
-                        onClick={() => openCommentModal(item.id)}
-                      >
-                        Добавить комментарий
-                      </Button>
-                    ) : null}
-                  </div>
-                  {(commentsByOption[item.id] ?? []).length === 0 ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {canCollaborate
-                        ? "Пока никто не написал — нажмите «Добавить комментарий»."
-                        : "Пока нет комментариев."}
+                <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_17rem] md:items-start">
+                  {item.previewDescription ? (
+                    <p className="line-clamp-3 text-sm text-muted-foreground md:line-clamp-4">
+                      {item.previewDescription}
                     </p>
                   ) : (
-                    <ul className="mt-2 max-h-48 space-y-3 overflow-y-auto pr-1">
-                      {(commentsByOption[item.id] ?? []).map((c) => (
-                        <li
-                          key={c.id}
-                          className="flex gap-2 rounded-lg border border-border/60 bg-muted/20 px-2 py-2 text-sm"
-                        >
-                          <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border/60">
-                            {c.authorAvatarUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- URL из профиля участника
-                              <img
-                                src={c.authorAvatarUrl}
-                                alt=""
-                                className="absolute inset-0 size-full object-cover"
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : (
-                              <div className="flex size-full items-center justify-center text-muted-foreground">
-                                <User className="size-4" aria-hidden />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-                              <span className="font-medium">
-                                {c.authorName}
-                              </span>
-                              <time
-                                className="shrink-0 text-[11px] text-muted-foreground"
-                                dateTime={c.createdAt}
-                              >
-                                {new Date(c.createdAt).toLocaleString("ru-RU", {
-                                  dateStyle: "short",
-                                  timeStyle: "short",
-                                })}
-                              </time>
-                            </div>
-                            <p className="mt-1 whitespace-pre-wrap wrap-break-words text-muted-foreground">
-                              {c.body}
+                    <div className="hidden md:block" aria-hidden />
+                  )}
+
+                  <aside className="space-y-2 text-xs text-muted-foreground md:border-l md:border-border/50 md:pl-4 dark:md:border-border/80">
+                    {item.price !== null ? (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground/90">
+                              За весь период
+                            </p>
+                            <p className="mt-0.5 text-base font-semibold tabular-nums text-foreground sm:text-lg">
+                              {formatAmount(
+                                calcTotalPrice(item) ?? 0,
+                                item.currency,
+                              )}
                             </p>
                           </div>
-                          {c.canDelete ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 shrink-0 self-start text-muted-foreground hover:text-destructive"
-                              title="Удалить комментарий"
-                              aria-label="Удалить комментарий"
-                              onClick={() =>
-                                void handleDeleteAccommodationComment(c.id)
-                              }
+                          {item.pricingMode !== "total" ? (
+                            <span
+                              className="inline-flex items-center gap-1 pt-0.5 text-[11px] text-muted-foreground"
+                              title={getPricingModeHint(item.pricingMode)}
                             >
-                              <Trash2 className="size-4" />
-                            </Button>
+                              <Calculator className="size-3.5" aria-hidden />
+                              {getPricingModeLabel(item.pricingMode)}
+                            </span>
                           ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span>
+                            На человека ({peopleCount}):{" "}
+                            <span className="font-medium text-foreground/90">
+                              {calcPerPerson(item) !== null
+                                ? formatAmount(
+                                    calcPerPerson(item) ?? 0,
+                                    item.currency,
+                                  )
+                                : "—"}
+                            </span>
+                          </span>
+                        </div>
+                        {rubPerUsd !== null &&
+                        isUsdCurrency(item.currency) &&
+                        calcTotalPrice(item) !== null &&
+                        calcPerPerson(item) !== null ? (
+                          <div>
+                            <div>
+                              ≈{" "}
+                              {formatRubAmount(
+                                (calcTotalPrice(item) ?? 0) * rubPerUsd,
+                              )}{" "}
+                              общая
+                            </div>
+                            <div className="mt-0.5">
+                              ≈{" "}
+                              {formatRubAmount(
+                                (calcPerPerson(item) ?? 0) * rubPerUsd,
+                              )}{" "}
+                              на человека
+                            </div>
+                          </div>
+                        ) : null}
+                        {item.freeCancellation ? (
+                          <span className="inline-flex text-emerald-700 dark:text-emerald-300">
+                            Бесплатная отмена
+                          </span>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div>Цена не указана — добавьте вручную.</div>
+                    )}
+                  </aside>
                 </div>
 
-                <div className="mt-4 rounded-xl border border-border/50 bg-muted/15 p-2 sm:p-2.5">
+                <div className="mt-5 rounded-lg border border-border/50 bg-muted/10 p-2.5 dark:border-border/75 sm:p-3">
                   <div
                     className={cn(
                       "flex gap-2",
@@ -1607,7 +1557,7 @@ export default function AccommodationsPage() {
                             lodgingQuickToolbarBtnClass,
                             "px-0 text-base leading-none md:px-0",
                             item.userVote === "up" &&
-                              "border-emerald-500/80 bg-emerald-500/25 text-emerald-900 ring-1 ring-emerald-500/40 hover:bg-emerald-500/30 dark:text-emerald-300",
+                              "border-emerald-500/60 bg-emerald-500/15 text-emerald-900 ring-1 ring-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-300",
                           )}
                           aria-label="Лайкнуть вариант"
                           onClick={() => void onVote(item.id, "up")}
@@ -1621,7 +1571,7 @@ export default function AccommodationsPage() {
                             lodgingQuickToolbarBtnClass,
                             "px-0 text-base leading-none md:px-0",
                             item.userVote === "down" &&
-                              "border-red-500/80 bg-red-500/25 text-red-900 ring-1 ring-red-500/40 hover:bg-red-500/30 dark:text-red-300",
+                              "border-red-500/60 bg-red-500/15 text-red-900 ring-1 ring-red-500/30 hover:bg-red-500/20 dark:text-red-300",
                           )}
                           aria-label="Дизлайкнуть вариант"
                           onClick={() => void onVote(item.id, "down")}
@@ -1814,6 +1764,57 @@ export default function AccommodationsPage() {
                         </div>
                       </details>
                     ) : null}
+                  </div>
+                </div>
+                <div className="mt-4 rounded-lg border border-border/60 bg-muted/5 px-3 py-2.5 dark:border-border/80">
+                  <div className="flex items-start justify-between gap-2 max-md:flex-col">
+                    <div className="min-w-0 flex-1 max-md:w-full">
+                      <p className="text-sm font-medium">
+                        Комментарии участников{" "}
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          ({commentsByOption[item.id]?.length ?? 0})
+                        </span>
+                      </p>
+                      {(() => {
+                        const latestComment = getLatestComment(
+                          commentsByOption[item.id] ?? [],
+                        );
+                        return latestComment?.body.trim() ? (
+                          <p className="line-clamp-1 wrap-anywhere text-xs text-muted-foreground">
+                            {latestComment.authorName}: {latestComment.body} ·{" "}
+                            {formatCommentTimestamp(latestComment.createdAt)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            {canCollaborate
+                              ? "Обсуждение открывается в подробном виде карточки."
+                              : "Пока нет комментариев."}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 self-start max-md:w-full max-md:[&>*]:flex-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="max-md:min-h-9"
+                        onClick={() => openAccommodationDetail(item)}
+                      >
+                        Обсуждение
+                      </Button>
+                      {canCollaborate ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="max-md:min-h-9"
+                          onClick={() => openCommentModal(item.id)}
+                        >
+                          Добавить
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2036,7 +2037,10 @@ export default function AccommodationsPage() {
                                   )}
                                 </p>
                                 <span className="text-xs text-muted-foreground">
-                                  Тип: {detailOption.pricingMode}
+                                  Тип:{" "}
+                                  {getPricingModeLabel(
+                                    detailOption.pricingMode,
+                                  )}
                                 </span>
                               </div>
                               <p className="mt-1 text-xs text-muted-foreground">
@@ -2059,7 +2063,7 @@ export default function AccommodationsPage() {
                                       (calcTotalPrice(detailOption) ?? 0) *
                                         rubPerUsd,
                                     )}{" "}
-                                    общая (оценка)
+                                    общая
                                   </p>
                                   <p className="mt-0.5">
                                     ≈{" "}
@@ -2067,7 +2071,7 @@ export default function AccommodationsPage() {
                                       (calcPerPerson(detailOption) ?? 0) *
                                         rubPerUsd,
                                     )}{" "}
-                                    на человека (оценка)
+                                    на человека
                                   </p>
                                 </div>
                               ) : null}
@@ -2402,7 +2406,7 @@ export default function AccommodationsPage() {
                 <td className="pr-4 py-2">Тип цены</td>
                 {compareOptions.map((item) => (
                   <td key={item.id} className="pr-4">
-                    {item.pricingMode}
+                    {getPricingModeLabel(item.pricingMode)}
                   </td>
                 ))}
               </tr>

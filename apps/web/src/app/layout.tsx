@@ -1,13 +1,17 @@
 import { AppProviders } from "@/components/app-providers";
 import { THEME_COLOR_DARK, THEME_COLOR_LIGHT } from "@/lib/theme-chrome";
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Geist_Mono, Manrope } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-const inter = Inter({
+/**
+ * Manrope: хорошо держит кириллицу при латинице, variable, без «несобранности» апперкейса.
+ */
+const manrope = Manrope({
   variable: "--font-sans",
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic", "cyrillic-ext", "latin-ext"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -30,8 +34,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#171717" },
+    { media: "(prefers-color-scheme: light)", color: THEME_COLOR_LIGHT },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLOR_DARK },
   ],
   viewportFit: "cover",
 };
@@ -61,7 +65,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${manrope.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">

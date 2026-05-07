@@ -1,6 +1,11 @@
-/** Цвет статус-бара / PWA-хрома: совпадает с dark theme-color из layout viewport. */
-export const THEME_COLOR_LIGHT = "#ffffff";
-export const THEME_COLOR_DARK = "#171717";
+/**
+ * Цвет статус-бара / PWA-хрома (приближённо к новым semantic token’ам страницы).
+ * Смотри --background в `globals.css`.
+ */
+/** Светлый фон после теплого офф-белого (--background) */
+export const THEME_COLOR_LIGHT = "#f9f8f5";
+/** Почти чёрный статус-бар (слегка смягчает halo у OLED, около --background в .dark) */
+export const THEME_COLOR_DARK = "#111110";
 
 /**
  * Приведение оформления вне страницы (вкладка, iOS standalone) к активной теме приложения,
