@@ -33,6 +33,9 @@ export class TripPoint {
   @Prop({ type: PointCoordinates, required: true })
   coordinates!: PointCoordinates;
 
+  @Prop({ trim: true })
+  imageUrl?: string;
+
   @Prop()
   plannedAt?: Date;
 

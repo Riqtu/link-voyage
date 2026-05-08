@@ -578,6 +578,7 @@ export type ApiClient = {
           description: string;
           category: "stay" | "food" | "sight" | "transport" | "other";
           coordinates: { lat: number; lng: number };
+          imageUrl: string | null;
           plannedAt: string | null;
           createdBy: string;
         }[]
@@ -590,6 +591,7 @@ export type ApiClient = {
         description?: string;
         category?: "stay" | "food" | "sight" | "transport" | "other";
         coordinates: { lat: number; lng: number };
+        imageUrl?: string;
         plannedAt?: string;
       }): Promise<{ id: string; title: string }>;
     };
@@ -600,6 +602,7 @@ export type ApiClient = {
         description?: string;
         category: "stay" | "food" | "sight" | "transport" | "other";
         coordinates: { lat: number; lng: number };
+        imageUrl?: string;
         plannedAt?: string;
       }): Promise<{ success: true }>;
     };

@@ -2370,6 +2370,11 @@ export const appRouter = t.router({
           description: point.description ?? '',
           category: point.category,
           coordinates: point.coordinates,
+          imageUrl:
+            typeof point.imageUrl === 'string' &&
+            point.imageUrl.trim().length > 0
+              ? point.imageUrl.trim()
+              : null,
           plannedAt: point.plannedAt
             ? new Date(point.plannedAt).toISOString()
             : null,
@@ -2389,6 +2394,7 @@ export const appRouter = t.router({
             lat: z.number().min(-90).max(90),
             lng: z.number().min(-180).max(180),
           }),
+          imageUrl: z.string().url().max(2048).optional(),
           plannedAt: z.string().datetime().optional(),
         }),
       )
@@ -2402,6 +2408,7 @@ export const appRouter = t.router({
           description: input.description,
           category: input.category,
           coordinates: input.coordinates,
+          imageUrl: input.imageUrl?.trim(),
           plannedAt: input.plannedAt ? new Date(input.plannedAt) : undefined,
           createdBy: new Types.ObjectId(ctx.authUser.sub),
         });
@@ -2419,6 +2426,7 @@ export const appRouter = t.router({
             lat: z.number().min(-90).max(90),
             lng: z.number().min(-180).max(180),
           }),
+          imageUrl: z.string().url().max(2048).optional(),
           plannedAt: z.string().datetime().optional(),
         }),
       )
@@ -2441,6 +2449,7 @@ export const appRouter = t.router({
         point.description = input.description;
         point.category = input.category;
         point.coordinates = input.coordinates;
+        point.imageUrl = input.imageUrl?.trim();
         point.plannedAt = input.plannedAt
           ? new Date(input.plannedAt)
           : undefined;
