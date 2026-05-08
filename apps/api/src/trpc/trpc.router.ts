@@ -2706,6 +2706,10 @@ export const appRouter = t.router({
               }))
               .filter((p) => p.id.length > 0 && p.name.length > 0)
           : [];
+        const allowedReceiptParticipantIds = new Set([
+          ...trip.members.map((m) => m.userId.toString()),
+          ...externalParticipants.map((p) => p.id),
+        ]);
         const lineItems = lineItemsRaw.map((ln) => {
           const id = ln.id;
           const name = ln.name;
@@ -2714,12 +2718,16 @@ export const appRouter = t.router({
           const lineTotal = ln.lineTotal;
           const participantUserIds = Array.isArray(ln.participantUserIds)
             ? [...ln.participantUserIds]
+                .map((pid) => String(pid))
+                .filter((pid) => allowedReceiptParticipantIds.has(pid))
             : [];
           const consumptionsRaw = Array.isArray(ln.consumptions)
-            ? ln.consumptions.map((c) => ({
-                userId: String(c.userId),
-                qty: Number(c.qty),
-              }))
+            ? ln.consumptions
+                .map((c) => ({
+                  userId: String(c.userId),
+                  qty: Number(c.qty),
+                }))
+                .filter((c) => allowedReceiptParticipantIds.has(c.userId))
             : [];
 
           const shareRow: ReceiptLineForShare = {
@@ -2774,8 +2782,8 @@ export const appRouter = t.router({
             ? totalAmount / membersAll.length
             : null;
 
-        const memberIdSet = new Set(
-          trip.members.map((m) => m.userId.toString()),
+        const receiptParticipantIdSet = new Set(
+          membersAll.map((m) => m.userId.toString()),
         );
         const reimbursedPayerUserIdsRaw = Array.isArray(
           rec.reimbursedPayerUserIds,
@@ -2783,7 +2791,7 @@ export const appRouter = t.router({
           ? rec.reimbursedPayerUserIds.map((id) => String(id))
           : [];
         const reimbursedPayerUserIds = reimbursedPayerUserIdsRaw.filter((id) =>
-          memberIdSet.has(id),
+          receiptParticipantIdSet.has(id),
         );
 
         return {

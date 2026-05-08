@@ -19,6 +19,7 @@ import {
   MapPin,
   MoreHorizontal,
   Pencil,
+  Printer,
   Trash2,
   User,
   X,
@@ -111,6 +112,15 @@ type AccommodationCommentRow = {
   createdAt: string;
   canDelete: boolean;
 };
+
+function escapePrintHtml(input: string): string {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
 const AccommodationMap = dynamic(
   () =>
@@ -1003,6 +1013,30 @@ export default function AccommodationsPage() {
     [options, selectedIds],
   );
 
+  const optionsForList = useMemo(() => {
+    const booked = options.filter((item) => item.status === "booked");
+    const others = options.filter((item) => item.status !== "booked");
+    return [...booked, ...others];
+  }, [options]);
+
+  const voteExtremes = useMemo(() => {
+    const byId = new Map<string, number>();
+    let max = Number.NEGATIVE_INFINITY;
+    let min = Number.POSITIVE_INFINITY;
+    for (const item of options) {
+      const balance = item.upVotes - item.downVotes;
+      byId.set(item.id, balance);
+      if (balance > max) max = balance;
+      if (balance < min) min = balance;
+    }
+    const hasExtremes =
+      options.length > 1 &&
+      Number.isFinite(max) &&
+      Number.isFinite(min) &&
+      max > min;
+    return { byId, max, min, hasExtremes };
+  }, [options]);
+
   function toggleCompare(optionId: string) {
     setSelectedIds((prev) =>
       prev.includes(optionId)
@@ -1085,6 +1119,286 @@ export default function AccommodationsPage() {
 
   function closeAccommodationDetail() {
     setDetailOptionId(null);
+  }
+
+  function printAccommodationDetail(item: Option) {
+    const total = calcTotalPrice(item);
+    const perPerson = calcPerPerson(item);
+    const comments = commentsByOption[item.id] ?? [];
+    const statusLabel =
+      item.status === "booked"
+        ? "Забронировано"
+        : item.status === "rejected"
+          ? "Отклонено"
+          : "В шорт-листе";
+
+    const maxPrintComments = 2;
+    const hiddenCommentsCount = Math.max(0, comments.length - maxPrintComments);
+    const commentsHtml =
+      comments.length > 0
+        ? comments
+            .slice(0, maxPrintComments)
+            .map(
+              (c) =>
+                `<li class="comment"><strong>${escapePrintHtml(
+                  c.authorName,
+                )}</strong>: ${escapePrintHtml(c.body)}</li>`,
+            )
+            .join("") +
+          (hiddenCommentsCount > 0
+            ? `<li class="comment muted">И еще ${hiddenCommentsCount} комментариев в приложении</li>`
+            : "")
+        : '<li class="comment">Комментариев нет</li>';
+
+    const maxPrintAmenities = 8;
+    const hiddenAmenitiesCount = Math.max(
+      0,
+      item.amenities.length - maxPrintAmenities,
+    );
+    const amenitiesHtml =
+      item.amenities.length > 0
+        ? item.amenities
+            .slice(0, maxPrintAmenities)
+            .map(
+              (amenity) =>
+                `<span class="chip">${escapePrintHtml(amenity)}</span>`,
+            )
+            .join("") +
+          (hiddenAmenitiesCount > 0
+            ? `<span class="chip muted">+${hiddenAmenitiesCount} еще</span>`
+            : "")
+        : '<span class="muted">Не указано</span>';
+
+    const rubBlock =
+      rubPerUsd !== null &&
+      isUsdCurrency(item.currency) &&
+      total !== null &&
+      perPerson !== null
+        ? `<div class="price-table">
+            <div class="price-row"><span>На человека (${peopleCount})</span><strong>${escapePrintHtml(formatAmount(perPerson, item.currency))}</strong></div>
+            <div class="price-row"><span>Итого (RUB)</span><strong>${escapePrintHtml(formatRubAmount(total * rubPerUsd))}</strong></div>
+            <div class="price-row"><span>На человека (RUB)</span><strong>${escapePrintHtml(formatRubAmount(perPerson * rubPerUsd))}</strong></div>
+          </div>`
+        : "";
+    const basicPriceBlock =
+      total !== null && perPerson !== null
+        ? `<div class="price-table">
+            <div class="price-row"><span>Итого</span><strong>${escapePrintHtml(formatAmount(total, item.currency))}</strong></div>
+            <div class="price-row"><span>На человека (${peopleCount})</span><strong>${escapePrintHtml(formatAmount(perPerson, item.currency))}</strong></div>
+          </div>`
+        : "";
+    const useCompactPrintLayout =
+      (item.previewDescription?.length ?? 0) > 520 ||
+      (item.notes?.length ?? 0) > 360 ||
+      comments.length > 5;
+
+    const galleryThumbsHtml =
+      item.previewImages.length > 1
+        ? `<div class="thumbs-right">
+            ${item.previewImages
+              .slice(1, 5)
+              .map(
+                (img) =>
+                  `<img class="thumb" src="${escapePrintHtml(img.url)}" alt="" />`,
+              )
+              .join("")}
+          </div>`
+        : "";
+    const googleMapsApiKey =
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+    const mapImageUrl = item.coordinates
+      ? googleMapsApiKey
+        ? `https://maps.googleapis.com/maps/api/staticmap?center=${item.coordinates.lat.toFixed(
+            6,
+          )},${item.coordinates.lng.toFixed(
+            6,
+          )}&zoom=14&size=640x300&scale=2&maptype=roadmap&markers=color:red%7C${item.coordinates.lat.toFixed(
+            6,
+          )},${item.coordinates.lng.toFixed(6)}&key=${encodeURIComponent(googleMapsApiKey)}`
+        : `https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=${item.coordinates.lng.toFixed(
+            6,
+          )},${item.coordinates.lat.toFixed(
+            6,
+          )}&z=14&l=map&size=650,300&pt=${item.coordinates.lng.toFixed(
+            6,
+          )},${item.coordinates.lat.toFixed(6)},pm2rdm`
+      : "";
+
+    const html = `<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapePrintHtml(item.title)}</title>
+    <style>
+      :root { --text:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f8fafc; --chip:#f3f4f6; }
+      body { font-family: Inter, Arial, sans-serif; margin: 2mm; color: var(--text); line-height: 1.35; font-size: 12px; }
+      h1 { font-size: 20px; margin: 0; line-height: 1.2; }
+      h2 { font-size: 13px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .03em; color: #4b5563; }
+      p { margin: 4px 0; }
+      .muted { color: var(--muted); font-size: 11px; }
+      .sheet { border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip { display:inline-flex; align-items:center; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: #374151; font-size: 11px; }
+      .chip-status { background:#dbeafe; color:#1e3a8a; }
+      .grid { display: grid; grid-template-columns: 1.35fr .95fr; gap: 10px; margin-top: 8px; align-items: flex-start; }
+      .box { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; height: auto; }
+      .kpi { font-size: 18px; font-weight: 700; letter-spacing: .01em; }
+      .kpi-sub { font-size: 11px; color: var(--muted); }
+      .price-lines { display: grid; gap: 2px; }
+      .price-card { border-color: #dbe3ef; background: #fafcff; }
+      .price-table { margin-top: 6px; display: grid; gap: 3px; }
+      .price-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; }
+      .price-row span { color: #4b5563; }
+      .price-row strong { text-align: right; white-space: nowrap; }
+      .gallery { margin-top: 8px; display: grid; grid-template-columns: minmax(0,1fr) 132px; gap: 12px; align-items: start; }
+      .photo-frame { border: 1px solid var(--line); border-radius: 10px; background: var(--soft); height: 300px; overflow: hidden; }
+      .photo { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
+      .thumbs-right { display:grid; grid-template-columns: 1fr; gap: 6px; height: 300px; grid-template-rows: repeat(4, minmax(0, 1fr)); }
+      .thumb { width: 100%; height: 100%; min-height: 0; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+      .section { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+      .info-box { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; }
+      .info-box p { margin: 0; }
+      .compact-stack { display: grid; gap: 6px; }
+      .content-stack { display: grid; gap: 8px; }
+      .content-part { margin-top: 0; padding-top: 6px; border-top: 1px dashed var(--line); }
+      .content-part:first-child { border-top: 0; padding-top: 0; }
+      .comment-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+      .comment { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+      .map-wrap { margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+      .map { width: 100%; height: 184px; object-fit: cover; display: block; }
+      a { color: inherit; text-decoration: none; }
+      @media print {
+        body { margin: 1.5mm; }
+        .sheet { break-inside: avoid; page-break-inside: avoid; }
+      }
+      .sheet.compact { padding: 7px; font-size: 11.5px; line-height: 1.33; }
+      .sheet.compact h1 { font-size: 18px; }
+      .sheet.compact h2 { font-size: 12px; margin-bottom: 4px; }
+      .sheet.compact .gallery,
+      .sheet.compact .grid,
+      .sheet.compact .section { margin-top: 7px; padding-top: 6px; gap: 8px; }
+      .sheet.compact .photo-frame,
+      .sheet.compact .thumbs-right { height: 280px; }
+      .sheet.compact .map { height: 168px; }
+      .sheet.compact .chip { padding: 1px 7px; font-size: 10px; }
+      .sheet.compact .comment-list { gap: 4px; }
+      .sheet.compact .comment { padding: 4px 6px; }
+      .sheet.compact .price-table { gap: 2px; }
+      .sheet.compact .price-row { font-size: 11px; }
+      .sheet.compact .content-part { padding-top: 5px; }
+    </style>
+  </head>
+  <body>
+    <div class="sheet ${useCompactPrintLayout ? "compact" : ""}">
+      <div class="row">
+        <h1>${escapePrintHtml(item.title)}</h1>
+        <span class="chip chip-status">${escapePrintHtml(statusLabel)}</span>
+      </div>
+      ${
+        item.locationLabel
+          ? `<p class="muted">${escapePrintHtml(item.locationLabel)}</p>`
+          : ""
+      }
+      ${
+        item.previewImages[0]?.url
+          ? `<div class="gallery">
+              <div class="photo-frame">
+                <img class="photo" src="${escapePrintHtml(item.previewImages[0].url)}" alt="Фото жилья" />
+              </div>
+              ${galleryThumbsHtml}
+            </div>`
+          : ""
+      }
+
+      <div class="grid">
+        <div class="box">
+          <div class="content-stack">
+            <div class="content-part">
+              <h2>Описание</h2>
+              <p>${escapePrintHtml(item.previewDescription || "Не указано")}</p>
+            </div>
+            <div class="content-part">
+              <h2>Удобства</h2>
+              <div class="chips">${amenitiesHtml}</div>
+            </div>
+            ${
+              item.notes
+                ? `<div class="content-part"><h2>Заметки</h2><p>${escapePrintHtml(item.notes)}</p></div>`
+                : ""
+            }
+            <div class="content-part">
+              <h2>Комментарии</h2>
+              <ul class="comment-list">${commentsHtml}</ul>
+            </div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="compact-stack">
+            <div>
+              <h2>Оценка</h2>
+              <p><strong>Голоса:</strong> ${item.upVotes - item.downVotes}</p>
+              <p><strong>Рейтинг:</strong> ${item.rating ?? "—"}</p>
+              <p><strong>Тип цены:</strong> ${escapePrintHtml(getPricingModeLabel(item.pricingMode))}</p>
+            </div>
+            ${
+              mapImageUrl
+                ? `<div>
+                    <h2>Локация на карте</h2>
+                    <div class="map-wrap">
+                      <img class="map" src="${escapePrintHtml(mapImageUrl)}" alt="Карта расположения жилья" />
+                    </div>
+                  </div>`
+                : ""
+            }
+            <div class="box price-card">
+              <h2>Цена</h2>
+              <p class="kpi">${
+                total !== null
+                  ? escapePrintHtml(formatAmount(total, item.currency))
+                  : "не указано"
+              }</p>
+              <p class="kpi-sub"><strong>За весь период</strong></p>
+              <div class="price-lines">
+                ${rubBlock || basicPriceBlock}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+    const frame = document.createElement("iframe");
+    frame.style.position = "fixed";
+    frame.style.right = "0";
+    frame.style.bottom = "0";
+    frame.style.width = "0";
+    frame.style.height = "0";
+    frame.style.border = "0";
+    frame.setAttribute("aria-hidden", "true");
+    frame.srcdoc = html;
+
+    const cleanup = () => {
+      window.setTimeout(() => {
+        if (frame.parentNode) frame.parentNode.removeChild(frame);
+      }, 1200);
+    };
+
+    frame.onload = () => {
+      const w = frame.contentWindow;
+      if (!w) {
+        cleanup();
+        setError("Не удалось подготовить печать.");
+        return;
+      }
+      w.focus();
+      w.print();
+      cleanup();
+    };
+
+    document.body.appendChild(frame);
   }
 
   /** Сумма в USD как «общая», по тем же правилам что и в карточке (для оценки ₽). */
@@ -1271,556 +1585,580 @@ export default function AccommodationsPage() {
       ) : null}
 
       <section className="grid gap-3">
-        {options.map((item) => (
-          <article
-            key={item.id}
-            ref={(node) => {
-              if (node) cardRefs.current.set(item.id, node);
-              else cardRefs.current.delete(item.id);
-            }}
-            className={cn(
-              "scroll-mt-24 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-[box-shadow,opacity] duration-500 dark:border-border/80 sm:p-5",
-              item.noLongerAvailable && "opacity-[0.55]",
-              highlightedCardId === item.id &&
-                "ring-2 ring-primary ring-offset-2 ring-offset-background",
-            )}
-          >
-            <div className="grid gap-4 md:grid-cols-[200px_1fr] md:items-start">
-              <div>
-                {item.previewImages[0] ? (
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    title={item.previewImages[0].zone ?? undefined}
-                    onClick={() => openGallery(item.previewImages, 0)}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- внешние URL превью без white-list в next/image */}
-                    <img
-                      src={item.previewImages[0].url}
-                      alt=""
-                      className="h-44 w-full rounded-lg object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  </button>
-                ) : (
-                  <div className="flex h-44 w-full items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
-                    Нет изображения
-                  </div>
-                )}
-                {item.previewImages.length > 1 ? (
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {item.previewImages.slice(1, 9).map((image, index) => (
-                      <button
-                        key={`${item.id}-thumb-${image.url}-${index}`}
-                        type="button"
-                        title={image.zone ?? undefined}
-                        className="relative overflow-hidden rounded-md border"
-                        onClick={() =>
-                          openGallery(item.previewImages, index + 1)
-                        }
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element -- внешние URL превью без white-list в next/image */}
-                        <img
-                          src={image.url}
-                          alt=""
-                          className="h-14 w-full object-cover md:h-16"
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                        />
-                        {image.zone ? (
-                          <span className="absolute bottom-0 left-0 right-0 truncate bg-black/55 px-0.5 text-[9px] leading-tight text-white">
-                            {image.zone}
+        {optionsForList.map((item) => {
+          const voteBalance = voteExtremes.byId.get(item.id) ?? 0;
+          const isTopVoted =
+            voteExtremes.hasExtremes && voteBalance === voteExtremes.max;
+          const isLowVoted =
+            voteExtremes.hasExtremes && voteBalance === voteExtremes.min;
+          return (
+            <article
+              key={item.id}
+              ref={(node) => {
+                if (node) cardRefs.current.set(item.id, node);
+                else cardRefs.current.delete(item.id);
+              }}
+              className={cn(
+                "scroll-mt-24 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-[box-shadow,opacity] duration-500 dark:border-border/80 sm:p-5",
+                item.noLongerAvailable && "opacity-[0.55]",
+                isTopVoted &&
+                  "border-emerald-500/55 dark:border-emerald-500/45",
+                isLowVoted && "border-rose-500/55 dark:border-rose-500/45",
+                highlightedCardId === item.id &&
+                  "ring-2 ring-primary ring-offset-2 ring-offset-background",
+              )}
+            >
+              <div className="grid gap-4 md:grid-cols-[200px_1fr] md:items-start">
+                <div>
+                  {item.previewImages[0] ? (
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      title={item.previewImages[0].zone ?? undefined}
+                      onClick={() => openGallery(item.previewImages, 0)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- внешние URL превью без white-list в next/image */}
+                      <img
+                        src={item.previewImages[0].url}
+                        alt=""
+                        className="h-44 w-full rounded-lg object-cover"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </button>
+                  ) : (
+                    <div className="flex h-44 w-full items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
+                      Нет изображения
+                    </div>
+                  )}
+                  {item.previewImages.length > 1 ? (
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {item.previewImages.slice(1, 9).map((image, index) => (
+                        <button
+                          key={`${item.id}-thumb-${image.url}-${index}`}
+                          type="button"
+                          title={image.zone ?? undefined}
+                          className="relative overflow-hidden rounded-md border"
+                          onClick={() =>
+                            openGallery(item.previewImages, index + 1)
+                          }
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- внешние URL превью без white-list в next/image */}
+                          <img
+                            src={image.url}
+                            alt=""
+                            className="h-14 w-full object-cover md:h-16"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                          {image.zone ? (
+                            <span className="absolute bottom-0 left-0 right-0 truncate bg-black/55 px-0.5 text-[9px] leading-tight text-white">
+                              {image.zone}
+                            </span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div>
+                  <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-3">
+                    <div className="min-w-0">
+                      <h3 className="min-w-0 text-lg font-semibold leading-snug text-foreground">
+                        <button
+                          type="button"
+                          className="block w-full max-w-full cursor-pointer rounded  text-left font-semibold text-inherit text-pretty decoration-primary underline-offset-4 outline-none transition-colors line-clamp-2 hover:bg-muted/60 hover:text-primary hover:underline focus-visible:bg-muted/60 focus-visible:text-primary focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring"
+                          title="Подробный вид варианта"
+                          aria-label={`Открыть подробный вид: ${item.title}`}
+                          onClick={() => openAccommodationDetail(item)}
+                        >
+                          {item.title}
+                        </button>
+                      </h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {item.noLongerAvailable ? (
+                          <span
+                            className="rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground"
+                            title="Помечено как недоступное для бронирования"
+                          >
+                            Занято / недоступно
                           </span>
                         ) : null}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+                        {item.locationLabel ? (
+                          <span className="text-xs text-muted-foreground">
+                            {item.locationLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
 
-              <div>
-                <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-3">
-                  <div className="min-w-0">
-                    <h3 className="min-w-0 text-lg font-semibold leading-snug text-foreground">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs md:justify-end">
                       <button
                         type="button"
-                        className="block w-full max-w-full cursor-pointer rounded  text-left font-semibold text-inherit text-pretty decoration-primary underline-offset-4 outline-none transition-colors line-clamp-2 hover:bg-muted/60 hover:text-primary hover:underline focus-visible:bg-muted/60 focus-visible:text-primary focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring"
-                        title="Подробный вид варианта"
-                        aria-label={`Открыть подробный вид: ${item.title}`}
-                        onClick={() => openAccommodationDetail(item)}
+                        className="rounded-full bg-muted/25 px-2.5 py-1 text-foreground/90 transition hover:bg-muted/45 dark:bg-white/10 dark:hover:bg-white/15"
+                        onClick={() => openVoteModal(item.id)}
+                        title="Посмотреть, кто как проголосовал"
                       >
-                        {item.title}
+                        <span className="font-medium">
+                          {item.rating !== null ? (
+                            <>
+                              ★{" "}
+                              <span className="tabular-nums">
+                                {item.rating}
+                              </span>{" "}
+                              ·{" "}
+                            </>
+                          ) : null}
+                          Голоса{" "}
+                          <span className="tabular-nums">
+                            {item.upVotes - item.downVotes}
+                          </span>
+                        </span>
                       </button>
-                    </h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      {item.noLongerAvailable ? (
-                        <span
-                          className="rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground"
-                          title="Помечено как недоступное для бронирования"
-                        >
-                          Занято / недоступно
+                      {isTopVoted ? (
+                        <span className="rounded-full bg-emerald-500/12 px-2 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                          Топ по голосам
                         </span>
                       ) : null}
-                      {item.locationLabel ? (
-                        <span className="text-xs text-muted-foreground">
-                          {item.locationLabel}
+                      {isLowVoted ? (
+                        <span className="rounded-full bg-rose-500/12 px-2 py-1 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+                          Меньше голосов
                         </span>
                       ) : null}
+                      <AccommodationStatusBadge status={item.status} />
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs md:justify-end">
-                    <button
-                      type="button"
-                      className="rounded-full bg-muted/25 px-2.5 py-1 text-foreground/90 transition hover:bg-muted/45 dark:bg-white/10 dark:hover:bg-white/15"
-                      onClick={() => openVoteModal(item.id)}
-                      title="Посмотреть, кто как проголосовал"
-                    >
-                      <span className="font-medium">
-                        {item.rating !== null ? (
-                          <>
-                            ★{" "}
-                            <span className="tabular-nums">{item.rating}</span>{" "}
-                            ·{" "}
-                          </>
-                        ) : null}
-                        Голоса{" "}
-                        <span className="tabular-nums">
-                          {item.upVotes - item.downVotes}
+                  {item.amenities.length ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {item.amenities.slice(0, 5).map((amenity) => (
+                        <span
+                          key={amenity}
+                          className="rounded-full bg-muted/35 px-2 py-0.5 text-xs text-muted-foreground/85 dark:bg-white/10 dark:text-foreground/65"
+                        >
+                          {amenity}
                         </span>
-                      </span>
-                    </button>
-                    <AccommodationStatusBadge status={item.status} />
-                  </div>
-                </div>
+                      ))}
+                      {item.amenities.length > 5 ? (
+                        <span className="rounded-full bg-muted/35 px-2 py-0.5 text-xs text-muted-foreground/85 dark:bg-white/10 dark:text-foreground/65">
+                          +{item.amenities.length - 5}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
 
-                {item.amenities.length ? (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {item.amenities.slice(0, 5).map((amenity) => (
-                      <span
-                        key={amenity}
-                        className="rounded-full bg-muted/35 px-2 py-0.5 text-xs text-muted-foreground/85 dark:bg-white/10 dark:text-foreground/65"
-                      >
-                        {amenity}
-                      </span>
-                    ))}
-                    {item.amenities.length > 5 ? (
-                      <span className="rounded-full bg-muted/35 px-2 py-0.5 text-xs text-muted-foreground/85 dark:bg-white/10 dark:text-foreground/65">
-                        +{item.amenities.length - 5}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {tripRequirements.length ? (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Совпадение с требованиями:{" "}
-                    {
-                      tripRequirements.filter((req) =>
-                        item.amenities
-                          .map((amenity) => amenity.toLowerCase())
-                          .includes(req.toLowerCase()),
-                      ).length
-                    }
-                    /{tripRequirements.length}
-                  </p>
-                ) : null}
-
-                <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_17rem] md:items-start">
-                  {item.previewDescription ? (
-                    <p className="line-clamp-3 text-sm text-muted-foreground md:line-clamp-4">
-                      {item.previewDescription}
+                  {tripRequirements.length ? (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Совпадение с требованиями:{" "}
+                      {
+                        tripRequirements.filter((req) =>
+                          item.amenities
+                            .map((amenity) => amenity.toLowerCase())
+                            .includes(req.toLowerCase()),
+                        ).length
+                      }
+                      /{tripRequirements.length}
                     </p>
-                  ) : (
-                    <div className="hidden md:block" aria-hidden />
-                  )}
+                  ) : null}
 
-                  <aside className="space-y-2 text-xs text-muted-foreground md:border-l md:border-border/50 md:pl-4 dark:md:border-border/80">
-                    {item.price !== null ? (
-                      <>
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground/90">
-                              За весь период
-                            </p>
-                            <p className="mt-0.5 text-base font-semibold tabular-nums text-foreground sm:text-lg">
-                              {formatAmount(
-                                calcTotalPrice(item) ?? 0,
-                                item.currency,
-                              )}
-                            </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_17rem] md:items-start">
+                    {item.previewDescription ? (
+                      <p className="line-clamp-3 text-sm text-muted-foreground md:line-clamp-4">
+                        {item.previewDescription}
+                      </p>
+                    ) : (
+                      <div className="hidden md:block" aria-hidden />
+                    )}
+
+                    <aside className="space-y-2 text-xs text-muted-foreground md:border-l md:border-border/50 md:pl-4 dark:md:border-border/80">
+                      {item.price !== null ? (
+                        <>
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-muted-foreground/90">
+                                За весь период
+                              </p>
+                              <p className="mt-0.5 text-base font-semibold tabular-nums text-foreground sm:text-lg">
+                                {formatAmount(
+                                  calcTotalPrice(item) ?? 0,
+                                  item.currency,
+                                )}
+                              </p>
+                            </div>
+                            {item.pricingMode !== "total" ? (
+                              <span
+                                className="inline-flex items-center gap-1 pt-0.5 text-[11px] text-muted-foreground"
+                                title={getPricingModeHint(item.pricingMode)}
+                              >
+                                <Calculator className="size-3.5" aria-hidden />
+                                {getPricingModeLabel(item.pricingMode)}
+                              </span>
+                            ) : null}
                           </div>
-                          {item.pricingMode !== "total" ? (
-                            <span
-                              className="inline-flex items-center gap-1 pt-0.5 text-[11px] text-muted-foreground"
-                              title={getPricingModeHint(item.pricingMode)}
-                            >
-                              <Calculator className="size-3.5" aria-hidden />
-                              {getPricingModeLabel(item.pricingMode)}
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span>
+                              На человека ({peopleCount}):{" "}
+                              <span className="font-medium text-foreground/90">
+                                {calcPerPerson(item) !== null
+                                  ? formatAmount(
+                                      calcPerPerson(item) ?? 0,
+                                      item.currency,
+                                    )
+                                  : "—"}
+                              </span>
+                            </span>
+                          </div>
+                          {rubPerUsd !== null &&
+                          isUsdCurrency(item.currency) &&
+                          calcTotalPrice(item) !== null &&
+                          calcPerPerson(item) !== null ? (
+                            <div>
+                              <div>
+                                ≈{" "}
+                                {formatRubAmount(
+                                  (calcTotalPrice(item) ?? 0) * rubPerUsd,
+                                )}{" "}
+                                общая
+                              </div>
+                              <div className="mt-0.5">
+                                ≈{" "}
+                                {formatRubAmount(
+                                  (calcPerPerson(item) ?? 0) * rubPerUsd,
+                                )}{" "}
+                                на человека
+                              </div>
+                            </div>
+                          ) : null}
+                          {item.freeCancellation ? (
+                            <span className="inline-flex text-emerald-700 dark:text-emerald-300">
+                              Бесплатная отмена
                             </span>
                           ) : null}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span>
-                            На человека ({peopleCount}):{" "}
-                            <span className="font-medium text-foreground/90">
-                              {calcPerPerson(item) !== null
-                                ? formatAmount(
-                                    calcPerPerson(item) ?? 0,
-                                    item.currency,
-                                  )
-                                : "—"}
-                            </span>
-                          </span>
-                        </div>
-                        {rubPerUsd !== null &&
-                        isUsdCurrency(item.currency) &&
-                        calcTotalPrice(item) !== null &&
-                        calcPerPerson(item) !== null ? (
-                          <div>
-                            <div>
-                              ≈{" "}
-                              {formatRubAmount(
-                                (calcTotalPrice(item) ?? 0) * rubPerUsd,
-                              )}{" "}
-                              общая
-                            </div>
-                            <div className="mt-0.5">
-                              ≈{" "}
-                              {formatRubAmount(
-                                (calcPerPerson(item) ?? 0) * rubPerUsd,
-                              )}{" "}
-                              на человека
-                            </div>
-                          </div>
-                        ) : null}
-                        {item.freeCancellation ? (
-                          <span className="inline-flex text-emerald-700 dark:text-emerald-300">
-                            Бесплатная отмена
-                          </span>
-                        ) : null}
-                      </>
-                    ) : (
-                      <div>Цена не указана — добавьте вручную.</div>
-                    )}
-                  </aside>
-                </div>
+                        </>
+                      ) : (
+                        <div>Цена не указана — добавьте вручную.</div>
+                      )}
+                    </aside>
+                  </div>
 
-                <div className="mt-5 rounded-lg border border-border/50 bg-muted/10 p-2.5 dark:border-border/75 sm:p-3">
-                  <div
-                    className={cn(
-                      "flex gap-2",
-                      "flex-col max-md:[&>*]:w-full max-md:[&>*]:justify-center",
-                      "md:flex-row md:flex-wrap md:items-center",
-                    )}
-                  >
-                    {!canCollaborate ? (
-                      <Button
-                        size="sm"
-                        variant={
-                          selectedIds.includes(item.id) ? "default" : "outline"
-                        }
-                        className="shrink-0 gap-1 md:w-auto"
-                        onClick={() => toggleCompare(item.id)}
-                      >
-                        {selectedIds.includes(item.id)
-                          ? "В сравнении"
-                          : "Сравнить"}
-                      </Button>
-                    ) : null}
+                  <div className="mt-5 rounded-lg border border-border/50 bg-muted/10 p-2.5 dark:border-border/75 sm:p-3">
+                    <div
+                      className={cn(
+                        "flex gap-2",
+                        "flex-col max-md:[&>*]:w-full max-md:[&>*]:justify-center",
+                        "md:flex-row md:flex-wrap md:items-center",
+                      )}
+                    >
+                      {!canCollaborate ? (
+                        <Button
+                          size="sm"
+                          variant={
+                            selectedIds.includes(item.id)
+                              ? "default"
+                              : "outline"
+                          }
+                          className="shrink-0 gap-1 md:w-auto"
+                          onClick={() => toggleCompare(item.id)}
+                        >
+                          {selectedIds.includes(item.id)
+                            ? "В сравнении"
+                            : "Сравнить"}
+                        </Button>
+                      ) : null}
 
-                    {canCollaborate ? (
-                      <div className="flex w-full min-w-0 shrink-0 gap-2 md:w-auto">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={!item.coordinates}
-                          title={
-                            item.coordinates
-                              ? "Показать на общей карте жилья"
-                              : "Сначала задайте координаты варианта при редактировании"
-                          }
-                          aria-label={
-                            item.coordinates ? "На карте" : "Нет координат"
-                          }
-                          className={cn(lodgingQuickToolbarBtnClass, "px-0")}
-                          onClick={() => revealAccommodationOnMap(item)}
-                        >
-                          <MapPin className="size-4" aria-hidden />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={cn(
-                            lodgingQuickToolbarBtnClass,
-                            "px-0 text-base leading-none md:px-0",
-                            item.userVote === "up" &&
-                              "border-emerald-500/60 bg-emerald-500/15 text-emerald-900 ring-1 ring-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-300",
-                          )}
-                          aria-label="Лайкнуть вариант"
-                          onClick={() => void onVote(item.id, "up")}
-                        >
-                          👍
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={cn(
-                            lodgingQuickToolbarBtnClass,
-                            "px-0 text-base leading-none md:px-0",
-                            item.userVote === "down" &&
-                              "border-red-500/60 bg-red-500/15 text-red-900 ring-1 ring-red-500/30 hover:bg-red-500/20 dark:text-red-300",
-                          )}
-                          aria-label="Дизлайкнуть вариант"
-                          onClick={() => void onVote(item.id, "down")}
-                        >
-                          👎
-                        </Button>
-                        {item.sourceUrl ? (
-                          <a
-                            href={item.sourceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="Открыть источник"
-                            aria-label="Открыть источник во внешней вкладке"
-                            className={cn(
-                              buttonVariants({
-                                variant: "outline",
-                                size: "sm",
-                              }),
-                              lodgingQuickToolbarBtnClass,
-                              "inline-flex shrink-0 no-underline",
-                              "border-dashed px-0",
-                            )}
-                          >
-                            <ExternalLink
-                              className="size-4 opacity-80"
-                              aria-hidden
-                            />
-                          </a>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <div className="flex w-full shrink-0 gap-2 md:w-auto">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={!item.coordinates}
-                          title={
-                            item.coordinates
-                              ? "Показать на общей карте жилья"
-                              : "Нет координат на карте"
-                          }
-                          aria-label={
-                            item.coordinates ? "На карте" : "Нет координат"
-                          }
-                          className={cn(lodgingQuickToolbarBtnClass, "px-0")}
-                          onClick={() => revealAccommodationOnMap(item)}
-                        >
-                          <MapPin className="size-4" aria-hidden />
-                        </Button>
-                        {item.sourceUrl ? (
-                          <a
-                            href={item.sourceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="Открыть источник"
-                            aria-label="Открыть источник во внешней вкладке"
-                            className={cn(
-                              buttonVariants({
-                                variant: "outline",
-                                size: "sm",
-                              }),
-                              lodgingQuickToolbarBtnClass,
-                              "inline-flex shrink-0 no-underline",
-                              "border-dashed px-0",
-                            )}
-                          >
-                            <ExternalLink
-                              className="size-4 opacity-80"
-                              aria-hidden
-                            />
-                          </a>
-                        ) : null}
-                      </div>
-                    )}
-
-                    {canCollaborate ? (
-                      <details
-                        className={cn(
-                          "group relative shrink-0 max-md:w-full",
-                          "md:ml-auto",
-                        )}
-                      >
-                        <summary
-                          className={cn(
-                            buttonVariants({
-                              variant: "outline",
-                              size: "sm",
-                            }),
-                            "flex h-9 min-h-[2.25rem] cursor-pointer list-none items-center justify-center gap-2 md:h-9 [&::-webkit-details-marker]:hidden max-md:w-full md:min-h-9",
-                          )}
-                          aria-label="Дополнительные действия с вариантом"
-                        >
-                          <MoreHorizontal
-                            className="size-4 text-muted-foreground"
-                            aria-hidden
-                          />
-                          <span>Ещё</span>
-                        </summary>
-                        <div
-                          role="menu"
-                          className="absolute top-[calc(100%+0.375rem)] right-0 z-30 min-w-[12.5rem] rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-lg max-md:inset-x-0 max-md:right-0 max-md:left-0"
-                        >
+                      {canCollaborate ? (
+                        <div className="flex w-full min-w-0 shrink-0 gap-2 md:w-auto">
                           <Button
                             type="button"
-                            variant="ghost"
                             size="sm"
-                            className={cn(
-                              "h-auto w-full justify-start rounded-none px-3 py-2 font-normal",
-                              item.status === "booked" &&
-                                "bg-muted/70 font-medium",
-                            )}
-                            onClick={(e) => {
-                              void toggleBooked(item);
-                              closeNearestDetailsMenu(e.currentTarget);
-                            }}
-                          >
-                            {item.status === "booked"
-                              ? "Снять бронь"
-                              : "Забронировать"}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "h-auto w-full justify-start rounded-none px-3 py-2 font-normal",
-                              selectedIds.includes(item.id) &&
-                                "bg-primary/12 font-medium text-primary",
-                            )}
-                            onClick={(e) => {
-                              toggleCompare(item.id);
-                              closeNearestDetailsMenu(e.currentTarget);
-                            }}
-                          >
-                            {selectedIds.includes(item.id)
-                              ? "В сравнении"
-                              : "Сравнить"}
-                          </Button>
-                          <div className="my-1 h-px bg-border" aria-hidden />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 font-normal"
+                            variant="outline"
+                            disabled={!item.coordinates}
                             title={
-                              item.noLongerAvailable
-                                ? "Показывать снова как доступный для брони"
-                                : "Приглушить карточку для команды — объект занят другими"
+                              item.coordinates
+                                ? "Показать на общей карте жилья"
+                                : "Сначала задайте координаты варианта при редактировании"
                             }
-                            onClick={(e) => {
-                              void toggleNoLongerAvailable(item);
-                              closeNearestDetailsMenu(e.currentTarget);
-                            }}
+                            aria-label={
+                              item.coordinates ? "На карте" : "Нет координат"
+                            }
+                            className={cn(lodgingQuickToolbarBtnClass, "px-0")}
+                            onClick={() => revealAccommodationOnMap(item)}
                           >
-                            {item.noLongerAvailable
-                              ? "Снова доступно"
-                              : "Занято у других"}
+                            <MapPin className="size-4" aria-hidden />
                           </Button>
-                          <div className="my-1 h-px bg-border" aria-hidden />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={cn(
+                              lodgingQuickToolbarBtnClass,
+                              "px-0 text-base leading-none md:px-0",
+                              item.userVote === "up" &&
+                                "border-emerald-500/60 bg-emerald-500/15 text-emerald-900 ring-1 ring-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-300",
+                            )}
+                            aria-label="Лайкнуть вариант"
+                            onClick={() => void onVote(item.id, "up")}
+                          >
+                            👍
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={cn(
+                              lodgingQuickToolbarBtnClass,
+                              "px-0 text-base leading-none md:px-0",
+                              item.userVote === "down" &&
+                                "border-red-500/60 bg-red-500/15 text-red-900 ring-1 ring-red-500/30 hover:bg-red-500/20 dark:text-red-300",
+                            )}
+                            aria-label="Дизлайкнуть вариант"
+                            onClick={() => void onVote(item.id, "down")}
+                          >
+                            👎
+                          </Button>
+                          {item.sourceUrl ? (
+                            <a
+                              href={item.sourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Открыть источник"
+                              aria-label="Открыть источник во внешней вкладке"
+                              className={cn(
+                                buttonVariants({
+                                  variant: "outline",
+                                  size: "sm",
+                                }),
+                                lodgingQuickToolbarBtnClass,
+                                "inline-flex shrink-0 no-underline",
+                                "border-dashed px-0",
+                              )}
+                            >
+                              <ExternalLink
+                                className="size-4 opacity-80"
+                                aria-hidden
+                              />
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="flex w-full shrink-0 gap-2 md:w-auto">
                           <Button
                             type="button"
-                            variant="ghost"
                             size="sm"
-                            className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 font-normal"
-                            onClick={(e) => {
-                              closeNearestDetailsMenu(e.currentTarget);
-                              startEditing(item);
-                            }}
+                            variant="outline"
+                            disabled={!item.coordinates}
+                            title={
+                              item.coordinates
+                                ? "Показать на общей карте жилья"
+                                : "Нет координат на карте"
+                            }
+                            aria-label={
+                              item.coordinates ? "На карте" : "Нет координат"
+                            }
+                            className={cn(lodgingQuickToolbarBtnClass, "px-0")}
+                            onClick={() => revealAccommodationOnMap(item)}
                           >
-                            <Pencil
+                            <MapPin className="size-4" aria-hidden />
+                          </Button>
+                          {item.sourceUrl ? (
+                            <a
+                              href={item.sourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Открыть источник"
+                              aria-label="Открыть источник во внешней вкладке"
+                              className={cn(
+                                buttonVariants({
+                                  variant: "outline",
+                                  size: "sm",
+                                }),
+                                lodgingQuickToolbarBtnClass,
+                                "inline-flex shrink-0 no-underline",
+                                "border-dashed px-0",
+                              )}
+                            >
+                              <ExternalLink
+                                className="size-4 opacity-80"
+                                aria-hidden
+                              />
+                            </a>
+                          ) : null}
+                        </div>
+                      )}
+
+                      {canCollaborate ? (
+                        <details
+                          className={cn(
+                            "group relative shrink-0 max-md:w-full",
+                            "md:ml-auto",
+                          )}
+                        >
+                          <summary
+                            className={cn(
+                              buttonVariants({
+                                variant: "outline",
+                                size: "sm",
+                              }),
+                              "flex h-9 min-h-[2.25rem] cursor-pointer list-none items-center justify-center gap-2 md:h-9 [&::-webkit-details-marker]:hidden max-md:w-full md:min-h-9",
+                            )}
+                            aria-label="Дополнительные действия с вариантом"
+                          >
+                            <MoreHorizontal
                               className="size-4 text-muted-foreground"
                               aria-hidden
                             />
-                            Редактировать
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={(e) => {
-                              closeNearestDetailsMenu(e.currentTarget);
-                              void onDelete(item.id);
-                            }}
+                            <span>Ещё</span>
+                          </summary>
+                          <div
+                            role="menu"
+                            className="absolute top-[calc(100%+0.375rem)] right-0 z-30 min-w-[12.5rem] rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-lg max-md:inset-x-0 max-md:right-0 max-md:left-0"
                           >
-                            <Trash2 className="size-4" aria-hidden />
-                            Удалить
-                          </Button>
-                        </div>
-                      </details>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="mt-4 rounded-lg border border-border/60 bg-muted/5 px-3 py-2.5 dark:border-border/80">
-                  <div className="flex items-start justify-between gap-2 max-md:flex-col">
-                    <div className="min-w-0 flex-1 max-md:w-full">
-                      <p className="text-sm font-medium">
-                        Комментарии участников{" "}
-                        <span className="text-xs tabular-nums text-muted-foreground">
-                          ({commentsByOption[item.id]?.length ?? 0})
-                        </span>
-                      </p>
-                      {(() => {
-                        const latestComment = getLatestComment(
-                          commentsByOption[item.id] ?? [],
-                        );
-                        return latestComment?.body.trim() ? (
-                          <p className="line-clamp-1 wrap-anywhere text-xs text-muted-foreground">
-                            {latestComment.authorName}: {latestComment.body} ·{" "}
-                            {formatCommentTimestamp(latestComment.createdAt)}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            {canCollaborate
-                              ? "Обсуждение открывается в подробном виде карточки."
-                              : "Пока нет комментариев."}
-                          </p>
-                        );
-                      })()}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-auto w-full justify-start rounded-none px-3 py-2 font-normal",
+                                item.status === "booked" &&
+                                  "bg-muted/70 font-medium",
+                              )}
+                              onClick={(e) => {
+                                void toggleBooked(item);
+                                closeNearestDetailsMenu(e.currentTarget);
+                              }}
+                            >
+                              {item.status === "booked"
+                                ? "Снять бронь"
+                                : "Забронировать"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-auto w-full justify-start rounded-none px-3 py-2 font-normal",
+                                selectedIds.includes(item.id) &&
+                                  "bg-primary/12 font-medium text-primary",
+                              )}
+                              onClick={(e) => {
+                                toggleCompare(item.id);
+                                closeNearestDetailsMenu(e.currentTarget);
+                              }}
+                            >
+                              {selectedIds.includes(item.id)
+                                ? "В сравнении"
+                                : "Сравнить"}
+                            </Button>
+                            <div className="my-1 h-px bg-border" aria-hidden />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 font-normal"
+                              title={
+                                item.noLongerAvailable
+                                  ? "Показывать снова как доступный для брони"
+                                  : "Приглушить карточку для команды — объект занят другими"
+                              }
+                              onClick={(e) => {
+                                void toggleNoLongerAvailable(item);
+                                closeNearestDetailsMenu(e.currentTarget);
+                              }}
+                            >
+                              {item.noLongerAvailable
+                                ? "Снова доступно"
+                                : "Занято у других"}
+                            </Button>
+                            <div className="my-1 h-px bg-border" aria-hidden />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 font-normal"
+                              onClick={(e) => {
+                                closeNearestDetailsMenu(e.currentTarget);
+                                startEditing(item);
+                              }}
+                            >
+                              <Pencil
+                                className="size-4 text-muted-foreground"
+                                aria-hidden
+                              />
+                              Редактировать
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={(e) => {
+                                closeNearestDetailsMenu(e.currentTarget);
+                                void onDelete(item.id);
+                              }}
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                              Удалить
+                            </Button>
+                          </div>
+                        </details>
+                      ) : null}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2 self-start max-md:w-full max-md:[&>*]:flex-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="max-md:min-h-9"
-                        onClick={() => openAccommodationDetail(item)}
-                      >
-                        Обсуждение
-                      </Button>
-                      {canCollaborate ? (
+                  </div>
+                  <div className="mt-4 rounded-lg border border-border/60 bg-muted/5 px-3 py-2.5 dark:border-border/80">
+                    <div className="flex items-start justify-between gap-2 max-md:flex-col">
+                      <div className="min-w-0 flex-1 max-md:w-full">
+                        <p className="text-sm font-medium">
+                          Комментарии участников{" "}
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            ({commentsByOption[item.id]?.length ?? 0})
+                          </span>
+                        </p>
+                        {(() => {
+                          const latestComment = getLatestComment(
+                            commentsByOption[item.id] ?? [],
+                          );
+                          return latestComment?.body.trim() ? (
+                            <p className="line-clamp-1 wrap-anywhere text-xs text-muted-foreground">
+                              {latestComment.authorName}: {latestComment.body} ·{" "}
+                              {formatCommentTimestamp(latestComment.createdAt)}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              {canCollaborate
+                                ? "Обсуждение открывается в подробном виде карточки."
+                                : "Пока нет комментариев."}
+                            </p>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 self-start max-md:w-full max-md:[&>*]:flex-1">
                         <Button
                           type="button"
                           size="sm"
-                          variant="ghost"
+                          variant="outline"
                           className="max-md:min-h-9"
-                          onClick={() => openCommentModal(item.id)}
+                          onClick={() => openAccommodationDetail(item)}
                         >
-                          Добавить
+                          Обсуждение
                         </Button>
-                      ) : null}
+                        {canCollaborate ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="max-md:min-h-9"
+                            onClick={() => openCommentModal(item.id)}
+                          >
+                            Добавить
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
 
       <Dialog.Root
@@ -2208,52 +2546,83 @@ export default function AccommodationsPage() {
                       )}
                     </div>
 
-                    <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        disabled={!detailOption.coordinates}
-                        onClick={() => {
-                          closeAccommodationDetail();
-                          revealAccommodationOnMap(detailOption);
-                        }}
-                      >
-                        <MapPin className="size-3.5" aria-hidden />
-                        На общей карте
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          toggleCompare(detailOption.id);
-                        }}
-                      >
-                        {selectedIds.includes(detailOption.id)
-                          ? "Убрать из сравнения"
-                          : "В сравнение"}
-                      </Button>
-                      {detailOption.sourceUrl ? (
-                        <a
-                          href={detailOption.sourceUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={cn(
-                            buttonVariants({ variant: "outline", size: "sm" }),
-                            "inline-flex gap-1.5 no-underline",
-                          )}
+                    <div className="mt-5 grid gap-2 border-t border-border pt-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          disabled={!detailOption.coordinates}
+                          onClick={() => {
+                            closeAccommodationDetail();
+                            revealAccommodationOnMap(detailOption);
+                          }}
                         >
-                          <ExternalLink
-                            className="size-3.5 shrink-0 opacity-80"
-                            aria-hidden
-                          />
-                          Открыть источник
-                        </a>
-                      ) : null}
+                          <MapPin className="size-3.5" aria-hidden />
+                          На общей карте
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            toggleCompare(detailOption.id);
+                          }}
+                        >
+                          {selectedIds.includes(detailOption.id)
+                            ? "Убрать из сравнения"
+                            : "В сравнение"}
+                        </Button>
+                        {detailOption.sourceUrl ? (
+                          <a
+                            href={detailOption.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={cn(
+                              buttonVariants({
+                                variant: "outline",
+                                size: "sm",
+                              }),
+                              "inline-flex gap-1.5 no-underline",
+                            )}
+                          >
+                            <ExternalLink
+                              className="size-3.5 shrink-0 opacity-80"
+                              aria-hidden
+                            />
+                            Открыть источник
+                          </a>
+                        ) : null}
+                        {canCollaborate ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="default"
+                            className="md:ml-auto"
+                            onClick={() => {
+                              closeAccommodationDetail();
+                              startEditing(detailOption);
+                            }}
+                          >
+                            Редактировать
+                          </Button>
+                        ) : null}
+                      </div>
                       {canCollaborate ? (
-                        <>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={() =>
+                              printAccommodationDetail(detailOption)
+                            }
+                          >
+                            <Printer className="size-3.5" aria-hidden />
+                            Распечатать
+                          </Button>
                           <Button
                             type="button"
                             size="sm"
@@ -2309,18 +2678,7 @@ export default function AccommodationsPage() {
                           >
                             👎
                           </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="default"
-                            onClick={() => {
-                              closeAccommodationDetail();
-                              startEditing(detailOption);
-                            }}
-                          >
-                            Редактировать
-                          </Button>
-                        </>
+                        </div>
                       ) : null}
                     </div>
                   </div>
