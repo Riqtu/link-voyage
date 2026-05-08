@@ -1740,6 +1740,7 @@ export const appRouter = t.router({
           status?: string;
           error_message?: string;
           results?: Array<{
+            place_id?: string;
             formatted_address?: string;
             geometry?: { location?: { lat?: number; lng?: number } };
           }>;
@@ -1758,6 +1759,7 @@ export const appRouter = t.router({
         return (raw.results ?? [])
           .slice(0, input.limit)
           .map((item) => ({
+            placeId: item.place_id,
             label: item.formatted_address ?? '',
             lat: item.geometry?.location?.lat ?? Number.NaN,
             lng: item.geometry?.location?.lng ?? Number.NaN,

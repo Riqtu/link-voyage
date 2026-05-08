@@ -1,12 +1,13 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import {
   GOOGLE_MAP_MARKER_LIBRARY,
   GOOGLE_MAPS_JS_LOADER_ID,
 } from "@/lib/google-maps-js-loader";
 import { cn } from "@/lib/utils";
 import { GoogleMap, InfoWindowF, useJsApiLoader } from "@react-google-maps/api";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type TripPoint = {
   id: string;
@@ -15,6 +16,38 @@ type TripPoint = {
   category: "stay" | "food" | "sight" | "transport" | "other";
   coordinates: { lat: number; lng: number };
   imageUrl?: string | null;
+};
+
+type GooglePoiPreview = {
+  placeId: string;
+  title: string;
+  description?: string;
+  category?: string;
+  tripCategory: TripPoint["category"];
+  imageUrl?: string;
+  coordinates: { lat: number; lng: number };
+};
+
+type PlacePhotoLike = {
+  getURI?(options?: { maxWidthPx?: number; maxHeightPx?: number }): string;
+  getUrl?(options?: { maxWidth?: number; maxHeight?: number }): string;
+};
+
+type PlaceLike = {
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  primaryType?: string;
+  photos?: PlacePhotoLike[];
+  fetchFields(request: { fields: string[] }): Promise<void>;
+};
+
+type PlaceConstructor = new (options: {
+  id: string;
+  requestedLanguage?: string;
+}) => PlaceLike;
+
+type PlacesLibraryLike = {
+  Place?: PlaceConstructor;
 };
 
 const CATEGORY_MARKER_STYLE: Record<
@@ -26,6 +59,14 @@ const CATEGORY_MARKER_STYLE: Record<
   sight: { emoji: "📍", bg: "#fee2e2", border: "#dc2626", text: "#7f1d1d" },
   transport: { emoji: "🚌", bg: "#dcfce7", border: "#16a34a", text: "#14532d" },
   other: { emoji: "🧭", bg: "#ede9fe", border: "#7c3aed", text: "#4c1d95" },
+};
+
+const CATEGORY_LABEL: Record<TripPoint["category"], string> = {
+  stay: "Проживание",
+  food: "Еда и кафе",
+  sight: "Достопримечательность",
+  transport: "Транспорт",
+  other: "Другое место",
 };
 
 function AdvancedMarker(props: {
@@ -138,6 +179,13 @@ export function TripMap(props: {
   focusedPointId?: string | null;
   onPointPick?(point: TripPoint): void;
   onSelect(lat: number, lng: number): void;
+  onAddGooglePoi?(poi: {
+    title: string;
+    description?: string;
+    imageUrl?: string;
+    coordinates: { lat: number; lng: number };
+    category: TripPoint["category"];
+  }): Promise<void> | void;
 }) {
   const {
     center,
@@ -146,6 +194,7 @@ export function TripMap(props: {
     focusedPointId,
     onPointPick,
     onSelect,
+    onAddGooglePoi,
   } = props;
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "DEMO_MAP_ID";
@@ -158,6 +207,11 @@ export function TripMap(props: {
   const [selectedMarkerPointId, setSelectedMarkerPointId] = useState<
     string | null
   >(null);
+  const [activeGooglePoi, setActiveGooglePoi] =
+    useState<GooglePoiPreview | null>(null);
+  const [addingGooglePoiId, setAddingGooglePoiId] = useState<string | null>(
+    null,
+  );
   const activePointId = focusedPointId ?? selectedMarkerPointId;
   const activePoint = useMemo(
     () => points.find((point) => point.id === activePointId) ?? null,
@@ -198,6 +252,69 @@ export function TripMap(props: {
     }
   }, [focusedPointId, points, map]);
 
+  const loadGooglePoiPreview = useCallback(
+    async (placeId: string, coordinates: { lat: number; lng: number }) => {
+      const placesLib = (await google.maps.importLibrary(
+        "places",
+      )) as PlacesLibraryLike;
+      const Place = placesLib.Place;
+      if (!Place) return;
+      const place = new Place({ id: placeId, requestedLanguage: "ru" });
+      await place.fetchFields({
+        fields: ["displayName", "formattedAddress", "primaryType", "photos"],
+      });
+
+      const photo = place.photos?.[0];
+      const photoUrl =
+        photo?.getURI?.({
+          maxWidthPx: 640,
+          maxHeightPx: 360,
+        }) ??
+        photo?.getUrl?.({
+          maxWidth: 640,
+          maxHeight: 360,
+        });
+      const categoryRaw = place.primaryType;
+      const category = categoryRaw
+        ? categoryRaw
+            .split("_")
+            .map((part) => part[0]?.toUpperCase() + part.slice(1))
+            .join(" ")
+        : "Google POI";
+      const tripCategory: TripPoint["category"] =
+        categoryRaw === "lodging"
+          ? "stay"
+          : categoryRaw === "restaurant" ||
+              categoryRaw === "cafe" ||
+              categoryRaw === "bar"
+            ? "food"
+            : categoryRaw === "bus_station" ||
+                categoryRaw === "subway_station" ||
+                categoryRaw === "train_station" ||
+                categoryRaw === "airport"
+              ? "transport"
+              : categoryRaw === "tourist_attraction" ||
+                  categoryRaw === "museum" ||
+                  categoryRaw === "park"
+                ? "sight"
+                : "other";
+
+      setActiveGooglePoi({
+        placeId,
+        title:
+          place.displayName?.text ??
+          place.formattedAddress?.split(",")[0]?.trim() ??
+          "Точка",
+        description: place.formattedAddress ?? undefined,
+        category,
+        tripCategory,
+        imageUrl: photoUrl,
+        coordinates,
+      });
+    },
+    [],
+  );
+
   if (!apiKey) {
     return (
       <p className="p-3 text-sm text-muted-foreground">
@@ -233,6 +350,7 @@ export function TripMap(props: {
         zoomControl: true,
         streetViewControl: true,
         fullscreenControl: true,
+        gestureHandling: "greedy",
         zoomControlOptions: {
           position: google.maps.ControlPosition.LEFT_CENTER,
         },
@@ -251,6 +369,17 @@ export function TripMap(props: {
       }}
       onClick={(event) => {
         setSelectedMarkerPointId(null);
+        const placeClickEvent = event as google.maps.IconMouseEvent;
+        if (placeClickEvent.placeId) {
+          placeClickEvent.stop();
+          const lat = event.latLng?.lat();
+          const lng = event.latLng?.lng();
+          if (lat !== undefined && lng !== undefined) {
+            void loadGooglePoiPreview(placeClickEvent.placeId, { lat, lng });
+          }
+          return;
+        }
+        setActiveGooglePoi(null);
         const lat = event.latLng?.lat();
         const lng = event.latLng?.lng();
         if (lat !== undefined && lng !== undefined) {
@@ -269,6 +398,7 @@ export function TripMap(props: {
           imageUrl={point.imageUrl}
           onClick={(pointId) => {
             if (!pointId) return;
+            setActiveGooglePoi(null);
             setSelectedMarkerPointId(pointId);
             const selected = points.find((item) => item.id === pointId);
             if (selected) onPointPick?.(selected);
@@ -285,22 +415,26 @@ export function TripMap(props: {
             maxWidth: 260,
           }}
         >
-          <div className="min-w-[180px] max-w-[240px]">
+          <div className="min-w-[210px] max-w-[260px] rounded-xl border border-border/60 bg-card p-2.5 text-card-foreground shadow-md">
             {activePoint.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- preview from user/S3 url
               <img
                 src={activePoint.imageUrl}
                 alt=""
-                className="mb-2 h-20 w-full rounded-md object-cover"
+                className="mb-2 h-24 w-full rounded-lg border object-cover"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
                 }}
               />
             ) : null}
-            <p className="text-sm font-semibold">{activePoint.title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {activePoint.category}
+            <p className="truncate text-sm font-semibold">
+              {activePoint.title}
+            </p>
+            <p className="mt-1">
+              <span className="inline-flex rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                {CATEGORY_LABEL[activePoint.category]}
+              </span>
             </p>
             {activePoint.description ? (
               <p
@@ -311,6 +445,81 @@ export function TripMap(props: {
               >
                 {activePoint.description}
               </p>
+            ) : null}
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {activePoint.coordinates.lat.toFixed(5)},{" "}
+              {activePoint.coordinates.lng.toFixed(5)}
+            </p>
+          </div>
+        </InfoWindowF>
+      ) : null}
+      {activeGooglePoi ? (
+        <InfoWindowF
+          position={activeGooglePoi.coordinates}
+          onCloseClick={() => setActiveGooglePoi(null)}
+          options={{
+            headerDisabled: true,
+            pixelOffset: new google.maps.Size(0, -8),
+            maxWidth: 260,
+          }}
+        >
+          <div className="min-w-[210px] max-w-[260px] rounded-xl border border-border/60 bg-card p-2.5 text-card-foreground shadow-md">
+            {activeGooglePoi.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- image url returned by Google Places API
+              <img
+                src={activeGooglePoi.imageUrl}
+                alt=""
+                className="mb-2 h-24 w-full rounded-lg border object-cover"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : null}
+            <p className="truncate text-sm font-semibold">
+              {activeGooglePoi.title}
+            </p>
+            {activeGooglePoi.category ? (
+              <p className="mt-1">
+                <span className="inline-flex rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  {activeGooglePoi.category}
+                </span>
+              </p>
+            ) : null}
+            {activeGooglePoi.description ? (
+              <p className="mt-1 line-clamp-3 text-xs leading-snug text-muted-foreground">
+                {activeGooglePoi.description}
+              </p>
+            ) : null}
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {activeGooglePoi.coordinates.lat.toFixed(5)},{" "}
+              {activeGooglePoi.coordinates.lng.toFixed(5)}
+            </p>
+            {onAddGooglePoi ? (
+              <Button
+                size="sm"
+                className="mt-2 h-8 w-full"
+                disabled={addingGooglePoiId === activeGooglePoi.placeId}
+                onClick={async () => {
+                  setAddingGooglePoiId(activeGooglePoi.placeId);
+                  try {
+                    await onAddGooglePoi({
+                      title: activeGooglePoi.title,
+                      description: activeGooglePoi.description,
+                      imageUrl: activeGooglePoi.imageUrl,
+                      coordinates: activeGooglePoi.coordinates,
+                      category: activeGooglePoi.tripCategory,
+                    });
+                    setActiveGooglePoi(null);
+                  } finally {
+                    setAddingGooglePoiId(null);
+                  }
+                }}
+              >
+                {addingGooglePoiId === activeGooglePoi.placeId
+                  ? "Добавляем..."
+                  : "Добавить"}
+              </Button>
             ) : null}
           </div>
         </InfoWindowF>

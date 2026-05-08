@@ -23,6 +23,38 @@ type GeocodeResult = Awaited<
   >
 >[number];
 
+type PlacePhotoLike = {
+  getURI?(options?: { maxWidthPx?: number; maxHeightPx?: number }): string;
+  getUrl?(options?: { maxWidth?: number; maxHeight?: number }): string;
+  uri?: string;
+  url?: string;
+};
+
+type PlaceLike = {
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  photos?: PlacePhotoLike[];
+  fetchFields(request: { fields: string[] }): Promise<void>;
+};
+
+type PlaceConstructor = new (options: {
+  id: string;
+  requestedLanguage?: string;
+}) => PlaceLike & {
+  constructor: {
+    searchByText(request: {
+      textQuery?: string;
+      fields: string[];
+      language?: string;
+      maxResultCount?: number;
+    }): Promise<{ places: PlaceLike[] }>;
+  };
+};
+
+type PlacesLibraryLike = {
+  Place?: PlaceConstructor;
+};
+
 const categoryOptions: Array<{ value: TripPoint["category"]; label: string }> =
   [
     { value: "sight", label: "Место" },
@@ -86,31 +118,39 @@ export default function TripMapPage() {
     setGeocodeResults([]);
   }, []);
 
-  const loadPoints = useCallback(async () => {
-    if (!getAuthToken()) {
-      router.replace("/auth");
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      const api = getApiClient();
-      const result = await api.tripPoint.list.query({ tripId: id });
-      setPoints(result);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Не удалось загрузить точки",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id, router]);
+  const loadPoints = useCallback(
+    async (options?: { showLoading?: boolean }) => {
+      const shouldShowLoading = options?.showLoading ?? false;
+      if (!getAuthToken()) {
+        router.replace("/auth");
+        return;
+      }
+      if (shouldShowLoading) {
+        setIsLoading(true);
+      }
+      setError(null);
+      try {
+        const api = getApiClient();
+        const result = await api.tripPoint.list.query({ tripId: id });
+        setPoints(result);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Не удалось загрузить точки",
+        );
+      } finally {
+        if (shouldShowLoading) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [id, router],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadPoints();
+      void loadPoints({ showLoading: true });
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadPoints]);
@@ -257,6 +297,111 @@ export default function TripMapPage() {
     setPlannedAt(point.plannedAt ? point.plannedAt.slice(0, 16) : "");
   }
 
+  const fillPreviewFromPlaceId = useCallback(async (placeId?: string) => {
+    if (!placeId || typeof window === "undefined" || !window.google?.maps) {
+      return;
+    }
+    try {
+      const placesLib = (await google.maps.importLibrary(
+        "places",
+      )) as PlacesLibraryLike;
+      const Place = placesLib.Place;
+      if (!Place) return;
+      const getPhotoUrl = (photo?: PlacePhotoLike) =>
+        photo?.getURI?.({
+          maxWidthPx: 1200,
+          maxHeightPx: 800,
+        }) ??
+        photo?.getUrl?.({
+          maxWidth: 1200,
+          maxHeight: 800,
+        }) ??
+        photo?.uri ??
+        photo?.url;
+
+      const place = new Place({ id: placeId, requestedLanguage: "ru" });
+      await place.fetchFields({
+        fields: ["displayName", "formattedAddress", "photos"],
+      });
+
+      let photoUrl = getPhotoUrl(place.photos?.[0]);
+      if (!photoUrl) {
+        const byText = await (
+          Place as unknown as {
+            searchByText(request: {
+              textQuery?: string;
+              fields: string[];
+              language?: string;
+              maxResultCount?: number;
+            }): Promise<{ places: PlaceLike[] }>;
+          }
+        ).searchByText({
+          textQuery: place.displayName?.text ?? place.formattedAddress ?? "",
+          fields: ["displayName", "formattedAddress", "photos"],
+          language: "ru",
+          maxResultCount: 1,
+        });
+        const candidate = byText.places?.[0];
+        photoUrl = getPhotoUrl(candidate?.photos?.[0]);
+        if (candidate?.displayName?.text) {
+          setTitle(candidate.displayName.text);
+        }
+        if (candidate?.formattedAddress) {
+          setDescription((prev) => prev || candidate.formattedAddress || "");
+        }
+      }
+      if (photoUrl) {
+        setImageUrl(photoUrl);
+      }
+      if (place.displayName?.text) {
+        setTitle(place.displayName.text);
+      }
+      if (place.formattedAddress) {
+        setDescription((prev) => prev || place.formattedAddress || "");
+      }
+    } catch {
+      // Optional enrichment only: keep geocode flow working on any API limitation.
+    }
+  }, []);
+
+  const addGooglePoiToTrip = useCallback(
+    async (poi: {
+      title: string;
+      description?: string;
+      imageUrl?: string;
+      coordinates: { lat: number; lng: number };
+      category: TripPoint["category"];
+    }) => {
+      setError(null);
+      try {
+        const api = getApiClient();
+        const fallbackTitle =
+          poi.description?.split(",")[0]?.trim() ||
+          `Точка ${poi.coordinates.lat.toFixed(3)}, ${poi.coordinates.lng.toFixed(3)}`;
+        await api.tripPoint.create.mutate({
+          tripId: id,
+          title: poi.title.trim() || fallbackTitle,
+          description: poi.description?.trim() || undefined,
+          category: poi.category,
+          coordinates: poi.coordinates,
+          imageUrl: poi.imageUrl?.trim() || undefined,
+        });
+        await loadPoints();
+        setFocusedPointId(null);
+        setSelectedLat(poi.coordinates.lat);
+        setSelectedLng(poi.coordinates.lng);
+      } catch (saveError) {
+        setError(
+          saveError instanceof Error
+            ? saveError.message
+            : "Не удалось добавить место в поездку",
+        );
+        throw saveError;
+      }
+    },
+    [id, loadPoints],
+  );
+
   return (
     <main className="relative min-h-screen">
       <section className="fixed inset-x-0 bottom-0 top-[calc(3.5rem+env(safe-area-inset-top))] z-0">
@@ -269,6 +414,7 @@ export default function TripMapPage() {
             center={center}
             points={points}
             focusedPointId={focusedPointId}
+            onAddGooglePoi={addGooglePoiToTrip}
             onPointPick={(point) => {
               setFocusedPointId(point.id);
               setSelectedLat(point.coordinates.lat);
@@ -435,6 +581,7 @@ export default function TripMapPage() {
                       : center
                   }
                   points={points}
+                  onAddGooglePoi={addGooglePoiToTrip}
                   selectedPoint={
                     selectedLat !== null && selectedLng !== null
                       ? { lat: selectedLat, lng: selectedLng }
@@ -578,9 +725,18 @@ export default function TripMapPage() {
                             type="button"
                             className="w-full rounded-md border bg-background px-2 py-1.5 text-left text-xs hover:bg-muted"
                             onClick={() => {
+                              const placeId = (
+                                item as GeocodeResult & { placeId?: string }
+                              ).placeId;
                               setSelectedLat(item.lat);
                               setSelectedLng(item.lng);
                               setPlaceQuery(item.label);
+                              if (!title.trim()) {
+                                setTitle(
+                                  item.label.split(",")[0] ?? item.label,
+                                );
+                              }
+                              void fillPreviewFromPlaceId(placeId);
                             }}
                           >
                             <span className="block font-medium">
