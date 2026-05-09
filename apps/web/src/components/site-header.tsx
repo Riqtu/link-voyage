@@ -134,12 +134,13 @@ export function SiteHeader() {
   const tripsActive = pathname === "/trips" || pathname.startsWith("/trips/");
   const adminActive =
     pathname === "/admin/users" || pathname.startsWith("/admin/");
+  const brandHref = session.status === "user" ? "/trips" : "/";
 
   return (
     <header className="sticky top-0 z-[100] border-b border-border bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:gap-4 sm:px-6">
         <Link
-          href="/"
+          href={brandHref}
           className="flex shrink-0 items-center gap-2 font-semibold tracking-tight text-foreground"
         >
           <MapPinned className="size-5 text-muted-foreground" aria-hidden />
@@ -150,9 +151,11 @@ export function SiteHeader() {
           className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2"
           aria-label="Основное меню"
         >
-          <NavLink href="/" active={homeActive}>
-            Главная
-          </NavLink>
+          {session.status !== "user" ? (
+            <NavLink href="/" active={homeActive}>
+              Главная
+            </NavLink>
+          ) : null}
           <NavLink href="/trips" active={tripsActive}>
             Поездки
           </NavLink>

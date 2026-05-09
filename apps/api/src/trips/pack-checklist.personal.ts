@@ -58,7 +58,7 @@ export function clonePackChecklistRegenerateIds(
     return base;
   });
 
-  return out as TripPackChecklistItem[];
+  return out;
 }
 
 function legacySharedRows(trip: TripDocument): PlainPackRow[] | null {
@@ -115,14 +115,14 @@ export function ensurePersonalPackOnTrip(
   }
 
   const oid = viewerSub;
-  let entryExisting = trip.packChecklistsByMember.find(
+  const entryExisting = trip.packChecklistsByMember.find(
     (p) => p.userId.toString() === oid,
   );
 
   if (entryExisting !== undefined) {
     const unset = tryUnsetLegacySharedPackChecklist(trip);
     return {
-      items: entryExisting.items as TripPackChecklistItem[],
+      items: entryExisting.items,
       needsSave: unset,
     };
   }
@@ -139,13 +139,13 @@ export function ensurePersonalPackOnTrip(
   trip.packChecklistsByMember.push({
     userId: new Types.ObjectId(viewerSub),
     items: initialItems,
-  } as never);
+  });
   trip.markModified('packChecklistsByMember');
   const added =
     trip.packChecklistsByMember[trip.packChecklistsByMember.length - 1];
   tryUnsetLegacySharedPackChecklist(trip);
   return {
-    items: added.items as TripPackChecklistItem[],
+    items: added.items,
     needsSave: true,
   };
 }

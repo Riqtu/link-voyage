@@ -329,12 +329,10 @@ export default function TripPackChecklistPage() {
   }, [router, tripId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() подтягивает список при монтировании
     void load();
   }, [load]);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- однократная инициализация из localStorage */
     try {
       setPersonalHintVisible(
         typeof window !== "undefined" &&
@@ -345,7 +343,6 @@ export default function TripPackChecklistPage() {
     } finally {
       setHintResolved(true);
     }
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   useEffect(() => {

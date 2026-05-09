@@ -13,4 +13,5 @@ export function setAuthToken(token: string): void {
 export function clearAuthToken(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  void fetch("/api/session", { method: "DELETE", credentials: "include" });
 }

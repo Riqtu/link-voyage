@@ -4,19 +4,19 @@ import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import type { Express } from 'express';
 import { Model } from 'mongoose';
 import {
-    AccommodationComment,
-    AccommodationCommentDocument,
+  AccommodationComment,
+  AccommodationCommentDocument,
 } from './accommodation-comments/accommodation-comment.model';
 import {
-    Accommodation,
-    AccommodationDocument,
+  Accommodation,
+  AccommodationDocument,
 } from './accommodations/accommodation.model';
 import { AppModule } from './app.module';
 import { TripDoc, TripDocDocument } from './trip-docs/trip-doc.model';
 import { TripPoint, TripPointDocument } from './trip-points/trip-point.model';
 import {
-    TripReceipt,
-    TripReceiptDocument,
+  TripReceipt,
+  TripReceiptDocument,
 } from './trip-receipts/trip-receipt.model';
 import { Trip, TripDocument } from './trips/trip.model';
 import { createTrpcContext, getAuthUserFromRequest } from './trpc/trpc.context';
@@ -25,8 +25,7 @@ import { User, UserDocument } from './users/user.model';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const rawOrigin =
-    process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+  const rawOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
   const allowedOrigins = rawOrigin
     .split(',')
     .map((part) => part.trim())

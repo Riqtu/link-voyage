@@ -152,7 +152,14 @@ function normalizePricingMode(
   v: unknown,
 ): 'total' | 'perNight' | 'perPerson' | undefined {
   if (v === undefined || v === null) return undefined;
-  const s = String(v)
+  const raw =
+    typeof v === 'string'
+      ? v
+      : typeof v === 'number' || typeof v === 'boolean'
+        ? String(v)
+        : undefined;
+  if (raw === undefined) return undefined;
+  const s = raw
     .trim()
     .toLowerCase()
     .replace(/[\s_-]+/g, '');
@@ -231,15 +238,15 @@ function normalizeGeminiJsonShape(input: unknown): unknown {
     else o.freeCancellation = b;
   }
 
-  const strScalar = (key: keyof typeof o | string, maxLen: number): void => {
-    const val = o[key as string];
+  const strScalar = (key: keyof typeof o, maxLen: number): void => {
+    const val = o[key];
     if (val === undefined || val === null) return;
     if (typeof val === 'string') {
-      o[key as string] = val.trim().slice(0, maxLen);
+      o[key] = val.trim().slice(0, maxLen);
       return;
     }
     if (typeof val === 'number' && Number.isFinite(val)) {
-      o[key as string] = String(val).slice(0, maxLen);
+      o[key] = String(val).slice(0, maxLen);
     }
   };
 
@@ -301,7 +308,15 @@ function buildGeminiFallback(o: Record<string, unknown>): GeminiParsedShape {
   const pickStr = (k: string, max: number): string | undefined => {
     const v = o[k];
     if (v === undefined || v === null) return undefined;
-    const s = typeof v === 'string' ? v.trim() : String(v).trim();
+    const s =
+      typeof v === 'string'
+        ? v.trim()
+        : typeof v === 'number' || typeof v === 'boolean'
+          ? String(v).trim()
+          : typeof v === 'bigint'
+            ? v.toString().trim()
+            : undefined;
+    if (s === undefined) return undefined;
     const t = s.slice(0, max);
     return t.length >= 1 ? t : undefined;
   };
@@ -414,9 +429,13 @@ function parseGeminiEnrichmentJson(text: string): {
   }
 
   if (Array.isArray(raw) && raw.length > 0) {
-    const head = raw[0];
-    if (head && typeof head === 'object' && !Array.isArray(head)) {
-      raw = head;
+    const headUnknown: unknown = (raw as unknown[])[0];
+    if (
+      headUnknown &&
+      typeof headUnknown === 'object' &&
+      !Array.isArray(headUnknown)
+    ) {
+      raw = headUnknown;
     }
   }
 

@@ -20,14 +20,6 @@ const geminiReceiptSchema = z.object({
     .max(80),
 });
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing env var: ${name}`);
-  }
-  return value;
-}
-
 function parseJsonStrict(raw: string): unknown {
   const trimmed = raw.trim();
   const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)```$/i);

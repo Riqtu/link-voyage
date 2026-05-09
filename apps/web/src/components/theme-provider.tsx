@@ -68,7 +68,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeSetting>("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const themeRef = useRef(theme);
-  themeRef.current = theme;
 
   const setTheme = useCallback((next: ThemeSetting) => {
     setThemeState(next);
@@ -77,6 +76,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setResolvedTheme(r);
     applyResolved(r);
   }, []);
+
+  useLayoutEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
 
   useLayoutEffect(() => {
     const stored = readStoredTheme();

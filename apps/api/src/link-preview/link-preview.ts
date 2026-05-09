@@ -357,19 +357,6 @@ function resolveHref(
   }
 }
 
-function uniqStrings(items: string[], max: number): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const item of items) {
-    const trimmed = item.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-    if (out.length >= max) break;
-  }
-  return out;
-}
-
 function looksLikeNoiseImageUrl(href: string): boolean {
   try {
     const u = new URL(href);
@@ -547,14 +534,18 @@ function extractAmenityFeatureList(
     for (const k of ['itemListElement', 'element', 'includesObject']) {
       if (o[k] !== undefined) extractAmenityFeatureList(o[k], out, depth + 1);
     }
-    if (
-      typeof o.item === 'string' &&
-      String(o['@type'] ?? '')
-        .toLowerCase()
-        .includes('listitem')
-    ) {
-      const it = o.item.trim();
-      if (it.length >= 2 && it.length <= 64) out.push(it);
+    if (typeof o.item === 'string') {
+      const atType = o['@type'];
+      const typeStr =
+        typeof atType === 'string'
+          ? atType
+          : typeof atType === 'number' || typeof atType === 'boolean'
+            ? String(atType)
+            : '';
+      if (typeStr.toLowerCase().includes('listitem')) {
+        const it = o.item.trim();
+        if (it.length >= 2 && it.length <= 64) out.push(it);
+      }
     }
   }
 }

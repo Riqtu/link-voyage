@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { setAuthToken } from "@/lib/auth-token";
+import { registerWebSession } from "@/lib/web-session-sync";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
@@ -31,6 +32,7 @@ export default function AuthPage() {
           : await api.auth.login.mutate({ email, password });
 
       setAuthToken(response.token);
+      await registerWebSession(response.token);
       router.push("/trips");
     } catch (submitError) {
       const fallback = "Не удалось выполнить авторизацию";

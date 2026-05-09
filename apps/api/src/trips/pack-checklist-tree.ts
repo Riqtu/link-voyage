@@ -102,7 +102,7 @@ export function computeOrderedPack(nodes: PackNode[]): PackNode[] {
 export function applyPackOrderMongoArray(rows: TripPackChecklistItem[]): void {
   const refs = [...rows] as PackNode[];
   const ordered = computeOrderedPack(refs);
-  (rows as unknown as TripPackChecklistItem[]).splice(
+  rows.splice(
     0,
     rows.length,
     ...(ordered as unknown as TripPackChecklistItem[]),
@@ -185,7 +185,7 @@ export function swapPackChecklistAdjacentPeer(
   }
 
   const reordered = [...peers];
-  const tmp = reordered[j]!;
+  const tmp = reordered[j];
   reordered[j] = reordered[k]!;
   reordered[k] = tmp;
   reordered.forEach((node, idx) => {
@@ -244,7 +244,7 @@ export function applyPackReorderPeers(
   }
 
   for (let i = 0; i < orderedItemIds.length; i++) {
-    const id = orderedItemIds[i]!;
+    const id = orderedItemIds[i];
     const node = rows.find((r) => r._id.toString() === id);
     if (!node) {
       return { ok: false, message: 'Пункт не найден' };
