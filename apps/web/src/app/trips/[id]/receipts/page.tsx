@@ -135,19 +135,8 @@ export default function TripReceiptsListPage() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Чеки</h1>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/trips/${id}`}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "justify-center",
-            )}
-          >
-            К поездке
-          </Link>
-        </div>
       </div>
 
       {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}

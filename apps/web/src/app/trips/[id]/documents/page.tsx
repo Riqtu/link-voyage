@@ -215,23 +215,15 @@ export default function TripDocumentsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Документы поездки
         </h1>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "justify-center",
-            )}
-            href={`/trips/${id}`}
-          >
-            К поездке
-          </Link>
-          <Link
-            className={cn(buttonVariants({ variant: "outline" }))}
-            href="/trips"
-          >
-            Все поездки
-          </Link>
-        </div>
+        <Link
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "w-fit shrink-0 justify-center",
+          )}
+          href="/trips"
+        >
+          Все поездки
+        </Link>
       </div>
 
       {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}

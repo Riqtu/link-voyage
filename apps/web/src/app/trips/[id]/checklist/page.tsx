@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,6 @@ import {
   Search,
   SlidersHorizontal,
 } from "lucide-react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   useCallback,
@@ -738,8 +737,8 @@ export default function TripPackChecklistPage() {
         isLoading
           ? "pb-12"
           : undoDeleteSnapshot
-            ? "pb-[calc(188px+env(safe-area-inset-bottom))] sm:pb-[calc(180px+env(safe-area-inset-bottom))]"
-            : "pb-[calc(132px+env(safe-area-inset-bottom))] sm:pb-[calc(128px+env(safe-area-inset-bottom))]",
+            ? "pb-[calc(188px+var(--lv-trip-tab-recess,0px))] sm:pb-[calc(180px+var(--lv-trip-tab-recess,0px))]"
+            : "pb-[calc(132px+var(--lv-trip-tab-recess,0px))] sm:pb-[calc(128px+var(--lv-trip-tab-recess,0px))]",
       )}
     >
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
@@ -767,15 +766,6 @@ export default function TripPackChecklistPage() {
           )}
         </div>
         <div className="flex shrink-0 gap-2 self-start sm:self-end">
-          <Link
-            href={`/trips/${tripId}`}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "font-normal shadow-none",
-            )}
-          >
-            К поездке
-          </Link>
           {!isLoading ? (
             <Button
               type="button"
@@ -1244,7 +1234,7 @@ export default function TripPackChecklistPage() {
 
       {!isLoading && undoDeleteSnapshot ? (
         <div
-          className="pointer-events-none fixed inset-x-0 bottom-[calc(108px+env(safe-area-inset-bottom))] z-42 flex justify-center px-3"
+          className="pointer-events-none fixed inset-x-0 z-42 flex justify-center px-3 bottom-[calc(var(--lv-trip-tab-recess,0px)+6.75rem)]"
           role="status"
           aria-live="polite"
         >
@@ -1285,8 +1275,7 @@ export default function TripPackChecklistPage() {
       {!isLoading ? (
         <footer
           className={cn(
-            "pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center",
-            "px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2",
+            "pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 pt-2 bottom-[var(--lv-trip-tab-recess,0px)] pb-2",
           )}
           aria-label="Добавить в чеклист"
         >

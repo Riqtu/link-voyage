@@ -1,11 +1,11 @@
 "use client";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
-import { Pencil, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -94,6 +94,32 @@ export default function TripMapPage() {
   const [uploadBusy, setUploadBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
+  const [pointsListOpen, setPointsListOpen] = useState(true);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(`lv-map-points-list-open-${id}`);
+      if (stored === "1") setPointsListOpen(true);
+      else if (stored === "0") setPointsListOpen(false);
+    } catch {
+      /* private mode */
+    }
+  }, [id]);
+
+  const togglePointsList = useCallback(() => {
+    setPointsListOpen((prev) => {
+      const next = !prev;
+      try {
+        sessionStorage.setItem(
+          `lv-map-points-list-open-${id}`,
+          next ? "1" : "0",
+        );
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, [id]);
 
   const center = useMemo(() => {
     if (selectedLat !== null && selectedLng !== null) {
@@ -404,7 +430,7 @@ export default function TripMapPage() {
 
   return (
     <main className="relative min-h-screen">
-      <section className="fixed inset-x-0 bottom-0 top-[calc(3.5rem+env(safe-area-inset-top))] z-0">
+      <section className="fixed inset-x-0 top-[calc(3.5rem+env(safe-area-inset-top))] z-0 bottom-[var(--lv-trip-tab-recess)]">
         {isLoading ? (
           <p className="p-3 text-sm text-muted-foreground">
             Загружаем карту...
@@ -430,22 +456,8 @@ export default function TripMapPage() {
       </section>
 
       <header className="fixed inset-x-0 top-[calc(3.5rem+env(safe-area-inset-top)+0.25rem)] z-40 px-4 py-3 sm:px-6">
-        <div className="mx-auto flex w-full max-w-7xl flex-col items-start gap-2 rounded-xl border bg-card/90 px-3 py-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
+        <div className="mx-auto w-full max-w-7xl rounded-xl border bg-card/90 px-3 py-3 shadow-lg backdrop-blur sm:px-4">
           <h1 className="text-lg font-semibold sm:text-2xl">Карта поездки</h1>
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
-            <Link
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-              href={`/trips/${id}`}
-            >
-              Детали поездки
-            </Link>
-            <Link
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-              href={`/trips/${id}/accommodations`}
-            >
-              Жилье
-            </Link>
-          </div>
         </div>
       </header>
 
@@ -455,101 +467,168 @@ export default function TripMapPage() {
         </div>
       ) : null}
 
-      <aside className="fixed inset-x-2 bottom-2 z-20 max-h-[36vh] overflow-y-auto rounded-xl border bg-card/92 p-4 shadow-xl sm:inset-x-auto sm:top-[calc(10rem+env(safe-area-inset-top))] sm:right-6 sm:bottom-4 sm:max-h-none sm:w-[min(24rem,92vw)]">
-        <div className="sticky top-0 z-10 -mx-4 mb-4 border-b  px-4 pb-3 pt-1 backdrop-blur sm:static sm:m-0 sm:mb-4 sm:border-0 sm:bg-transparent sm:p-0">
-          <Button
-            className="w-full"
+      <aside
+        className={cn(
+          "fixed inset-x-2 bottom-[calc(0.5rem+var(--lv-trip-tab-recess))] z-20 overflow-hidden rounded-xl border bg-card/92 shadow-xl backdrop-blur-md",
+          /* max-height (+ min-height на sm) — одинаково анимируем мобилку и десктоп. */
+          "ease-[cubic-bezier(0.33,1,0.68,1)] duration-300 motion-reduce:duration-150",
+          "transition-[max-height] sm:transition-[max-height,min-height]",
+          "w-[calc(100%-1rem)] max-w-none sm:inset-x-auto sm:right-6 sm:bottom-[calc(1rem+var(--lv-trip-tab-recess))] sm:w-[min(24rem,92vw)]",
+          !pointsListOpen && "max-h-[2.875rem] sm:min-h-[2.875rem]",
+          pointsListOpen &&
+            cn(
+              "max-h-[min(52dvh,calc(100dvh-9rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)-var(--lv-trip-tab-recess)))]",
+              "sm:max-h-[calc(100dvh-10.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)-var(--lv-trip-tab-recess))]",
+              "sm:min-h-[calc(100dvh-10.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)-var(--lv-trip-tab-recess))]",
+            ),
+        )}
+      >
+        {/*
+          flex-col-reverse: ручка внизу панели (у таб-бара), при max-h режется верх контента —
+          визуально вся карточка заезжает вниз, остаётся только ручка.
+        */}
+        <div className="flex max-h-[inherit] flex-col-reverse sm:h-full sm:min-h-0">
+          <button
+            type="button"
+            id="trip-points-drawer-handle"
+            className="flex w-full touch-manipulation items-center justify-center gap-2 border-border/70 border-t px-4 py-2.5 text-sm font-semibold hover:bg-muted/40 active:bg-muted/55 supports-[backdrop-filter]:bg-muted/35"
+            aria-expanded={pointsListOpen}
+            aria-controls="trip-points-drawer-main"
             onClick={() => {
-              resetForm();
-              setPointModalOpen(true);
+              togglePointsList();
             }}
           >
-            Добавить точку
-          </Button>
-        </div>
+            <span className="text-foreground tabular-nums">
+              Точки ({points.length})
+            </span>
+            <span className="text-muted-foreground">
+              <span className="sr-only">
+                {pointsListOpen ? "Свернуть панель" : "Развернуть панель"}
+              </span>
+              {pointsListOpen ? (
+                <ChevronDown
+                  className="size-4 transition-transform motion-reduce:transition-none"
+                  aria-hidden
+                />
+              ) : (
+                <ChevronUp
+                  className="size-4 transition-transform motion-reduce:transition-none"
+                  aria-hidden
+                />
+              )}
+            </span>
+          </button>
 
-        <div className="space-y-2 border-t pt-3">
-          <h3 className="text-sm font-semibold">Точки ({points.length})</h3>
-          <ul className="space-y-2">
-            {points.map((point) => (
-              <li
-                key={point.id}
-                className="relative cursor-pointer rounded-lg border bg-background/80 p-2 transition-colors hover:bg-muted/50"
-                onClick={() => {
-                  setFocusedPointId(point.id);
-                  setSelectedLat(point.coordinates.lat);
-                  setSelectedLng(point.coordinates.lng);
-                }}
+          <div
+            id="trip-points-drawer-main"
+            role="region"
+            aria-labelledby="trip-points-heading"
+            aria-hidden={!pointsListOpen}
+            inert={!pointsListOpen ? true : undefined}
+            className={cn(
+              "flex min-h-0 max-h-[min(46dvh,22rem)] flex-1 flex-col gap-3 overflow-hidden p-4 pb-2 sm:max-h-none sm:flex-1",
+              !pointsListOpen && "pointer-events-none",
+            )}
+          >
+            <Button
+              className="w-full shrink-0"
+              onClick={() => {
+                resetForm();
+                setPointModalOpen(true);
+              }}
+            >
+              Добавить точку
+            </Button>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2">
+              <h3
+                id="trip-points-heading"
+                className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
               >
-                <div className="absolute top-2 right-2 z-1 flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-7"
-                    aria-label={`Изменить точку ${point.title}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      beginEdit(point);
+                Список ({points.length})
+              </h3>
+              <ul className="space-y-2" aria-labelledby="trip-points-heading">
+                {points.map((point) => (
+                  <li
+                    key={point.id}
+                    className="relative cursor-pointer rounded-lg border bg-background/80 p-2 transition-colors hover:bg-muted/50"
+                    onClick={() => {
+                      setFocusedPointId(point.id);
+                      setSelectedLat(point.coordinates.lat);
+                      setSelectedLng(point.coordinates.lng);
                     }}
                   >
-                    <Pencil className="size-3.5" aria-hidden />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-7 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={`Удалить точку ${point.title}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void removePoint(point.id);
-                    }}
-                  >
-                    <Trash2 className="size-3.5" aria-hidden />
-                  </Button>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted/30">
-                    {point.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- user-provided or S3 preview image
-                      <img
-                        src={point.imageUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        referrerPolicy="no-referrer"
-                        onError={(event) => {
-                          event.currentTarget.style.display = "none";
+                    <div className="absolute top-2 right-2 z-1 flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-7"
+                        aria-label={`Изменить точку ${point.title}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          beginEdit(point);
                         }}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-                        Нет фото
+                      >
+                        <Pencil className="size-3.5" aria-hidden />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-7 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        aria-label={`Удалить точку ${point.title}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void removePoint(point.id);
+                        }}
+                      >
+                        <Trash2 className="size-3.5" aria-hidden />
+                      </Button>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted/30">
+                        {point.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- user-provided or S3 preview image
+                          <img
+                            src={point.imageUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            referrerPolicy="no-referrer"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                            Нет фото
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {point.title}
-                    </p>
-                    <p className="mt-1">
-                      <span className="inline-flex rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                        {categoryLabelByValue[point.category]}
-                      </span>
-                    </p>
-                    {point.description ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {point.description}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {point.coordinates.lat.toFixed(5)},{" "}
-                      {point.coordinates.lng.toFixed(5)}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {point.title}
+                        </p>
+                        <p className="mt-1">
+                          <span className="inline-flex rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                            {categoryLabelByValue[point.category]}
+                          </span>
+                        </p>
+                        {point.description ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            {point.description}
+                          </p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {point.coordinates.lat.toFixed(5)},{" "}
+                          {point.coordinates.lng.toFixed(5)}
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       </aside>
 

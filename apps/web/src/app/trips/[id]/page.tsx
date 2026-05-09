@@ -9,16 +9,7 @@ import {
 } from "@/lib/trip-timezone-options";
 import { cn } from "@/lib/utils";
 import { Dialog } from "@base-ui/react/dialog";
-import {
-  ChevronRight,
-  FileText,
-  Hotel,
-  ListChecks,
-  MapPinned,
-  Receipt,
-  Trash2,
-  User,
-} from "lucide-react";
+import { ChevronRight, ListChecks, Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -295,95 +286,10 @@ export default function TripDetailsPage() {
             </Link>
           </div>
 
-          <nav
-            className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4"
-            aria-label="Разделы поездки"
-          >
-            <Link
-              href={`/trips/${id}/accommodations`}
-              className={cn(
-                "group flex min-h-40 flex-col rounded-2xl border border-border bg-linear-to-br from-muted/40 to-muted/10 p-5 text-center shadow-sm transition-colors",
-                "hover:border-primary/40 hover:from-muted/55 hover:to-muted/25 hover:shadow-md",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-              )}
-            >
-              <span className="flex min-h-21 flex-1 flex-col items-center justify-center">
-                <span className="rounded-2xl border border-primary/15 bg-primary/10 p-4 transition-colors group-hover:border-primary/25 group-hover:bg-primary/14">
-                  <Hotel
-                    className="size-12 text-primary"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                </span>
-              </span>
-              <span className="mt-4 text-base font-semibold leading-snug text-foreground">
-                Сравнение жилья
-              </span>
-            </Link>
-            <Link
-              href={`/trips/${id}/map`}
-              className={cn(
-                "group flex min-h-40 flex-col rounded-2xl border border-border bg-linear-to-br from-muted/40 to-muted/10 p-5 text-center shadow-sm transition-colors",
-                "hover:border-primary/40 hover:from-muted/55 hover:to-muted/25 hover:shadow-md",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-              )}
-            >
-              <span className="flex min-h-21 flex-1 flex-col items-center justify-center">
-                <span className="rounded-2xl border border-primary/15 bg-primary/10 p-4 transition-colors group-hover:border-primary/25 group-hover:bg-primary/14">
-                  <MapPinned
-                    className="size-12 text-primary"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                </span>
-              </span>
-              <span className="mt-4 text-base font-semibold leading-snug text-foreground">
-                Карта
-              </span>
-            </Link>
-            <Link
-              href={`/trips/${id}/documents`}
-              className={cn(
-                "group flex min-h-40 flex-col rounded-2xl border border-border bg-linear-to-br from-muted/40 to-muted/10 p-5 text-center shadow-sm transition-colors",
-                "hover:border-primary/40 hover:from-muted/55 hover:to-muted/25 hover:shadow-md",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-              )}
-            >
-              <span className="flex min-h-21 flex-1 flex-col items-center justify-center">
-                <span className="rounded-2xl border border-primary/15 bg-primary/10 p-4 transition-colors group-hover:border-primary/25 group-hover:bg-primary/14">
-                  <FileText
-                    className="size-12 text-primary"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                </span>
-              </span>
-              <span className="mt-4 text-base font-semibold leading-snug text-foreground">
-                Документы
-              </span>
-            </Link>
-            <Link
-              href={`/trips/${id}/receipts`}
-              className={cn(
-                "group flex min-h-40 flex-col rounded-2xl border border-border bg-linear-to-br from-muted/40 to-muted/10 p-5 text-center shadow-sm transition-colors",
-                "hover:border-primary/40 hover:from-muted/55 hover:to-muted/25 hover:shadow-md",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-              )}
-            >
-              <span className="flex min-h-21 flex-1 flex-col items-center justify-center">
-                <span className="rounded-2xl border border-primary/15 bg-primary/10 p-4 transition-colors group-hover:border-primary/25 group-hover:bg-primary/14">
-                  <Receipt
-                    className="size-12 text-primary"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                </span>
-              </span>
-              <span className="mt-4 text-base font-semibold leading-snug text-foreground">
-                Чеки
-              </span>
-            </Link>
-          </nav>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Разделы поездки — в нижней панели: карта, жильё, чеклист, чеки и
+            документы.
+          </p>
 
           <div className="mt-6 rounded-xl border bg-muted/30 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

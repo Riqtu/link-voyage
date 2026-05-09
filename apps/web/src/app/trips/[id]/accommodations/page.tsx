@@ -1419,7 +1419,7 @@ export default function AccommodationsPage() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-6 py-10">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6">
         <div>
           <h1 className="text-3xl font-semibold">Сравнение жилья</h1>
           <p className="text-sm text-muted-foreground">
@@ -1470,12 +1470,6 @@ export default function AccommodationsPage() {
             </p>
           ) : null}
         </div>
-        <Link
-          className={buttonVariants({ variant: "outline" })}
-          href={`/trips/${id}`}
-        >
-          Назад к поездке
-        </Link>
       </div>
 
       <section className="mb-6 rounded-2xl border bg-card p-5 shadow-sm">
