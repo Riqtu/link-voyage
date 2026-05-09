@@ -292,6 +292,13 @@
   outline-color: oklch(0.78 0.1 52 / 0.45);
 }
 
+/* Таб-бар поездки: на тач‑экранах анимация полоски только мешает (адрес-бар Safari, ResizeObserver). */
+@media (pointer: coarse) {
+  .lv-trip-tab-indicator {
+    transition: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lv-map-marker--pulse {
     animation: none;

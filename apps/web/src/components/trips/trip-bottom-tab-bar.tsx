@@ -83,32 +83,54 @@ export function TripBottomTabBar() {
     const link =
       activeIndex >= 0 ? (linkRefs.current[activeIndex] ?? null) : null;
     if (!nav || !link) {
-      setIndicator({ left: 0, width: 0 });
+      setIndicator((prev) =>
+        prev.left === 0 && prev.width === 0 ? prev : { left: 0, width: 0 },
+      );
       return;
     }
     const nr = nav.getBoundingClientRect();
     const lr = link.getBoundingClientRect();
-    setIndicator({
-      left: lr.left - nr.left + nav.scrollLeft,
-      width: lr.width,
+    const left = lr.left - nr.left + nav.scrollLeft;
+    const width = lr.width;
+    setIndicator((prev) => {
+      if (
+        Math.abs(prev.left - left) < 0.5 &&
+        Math.abs(prev.width - width) < 0.5
+      ) {
+        return prev;
+      }
+      return { left, width };
     });
   }, [activeIndex]);
 
   useLayoutEffect(() => {
+    let raf = 0;
+    const scheduleSync = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        syncIndicator();
+      });
+    };
+
     syncIndicator();
+
     const nav = navRef.current;
     if (!nav || typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", syncIndicator);
-      return () => window.removeEventListener("resize", syncIndicator);
+      window.addEventListener("resize", scheduleSync);
+      return () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener("resize", scheduleSync);
+      };
     }
     const ro = new ResizeObserver(() => {
-      syncIndicator();
+      scheduleSync();
     });
     ro.observe(nav);
-    window.addEventListener("resize", syncIndicator);
+    window.addEventListener("resize", scheduleSync);
     return () => {
+      cancelAnimationFrame(raf);
       ro.disconnect();
-      window.removeEventListener("resize", syncIndicator);
+      window.removeEventListener("resize", scheduleSync);
     };
   }, [syncIndicator, pathname, id]);
 
@@ -127,10 +149,11 @@ export function TripBottomTabBar() {
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none absolute bottom-0 rounded-full bg-primary",
+            "lv-trip-tab-indicator pointer-events-none absolute bottom-0 h-[3px] rounded-full bg-primary",
             indicator.width > 0 ? "opacity-100" : "opacity-0",
-            "motion-safe:h-[3px] motion-safe:transition-[left,width,opacity] motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.33,1,0.68,1)]",
-            "motion-reduce:transition-opacity motion-reduce:duration-200",
+            "motion-safe:transition-[left,width,opacity]",
+            "motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.33,1,0.68,1)]",
+            "motion-reduce:transition-opacity motion-reduce:duration-150",
           )}
           style={{
             left: indicator.left,
@@ -149,9 +172,8 @@ export function TripBottomTabBar() {
               }}
               href={href}
               className={cn(
-                "relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[10px] font-medium sm:gap-1 sm:px-1.5 sm:text-xs",
-                "motion-safe:transition-[color,transform] motion-safe:duration-200 motion-safe:ease-out",
-                "motion-safe:active:scale-[0.96]",
+                "relative z-10 flex min-w-0 flex-1 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-2 text-[10px] font-medium select-none [-webkit-tap-highlight-color:transparent] sm:gap-1 sm:px-1.5 sm:py-1.5 sm:text-xs",
+                "motion-safe:transition-colors motion-safe:duration-150 motion-safe:ease-out",
                 active
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground",
@@ -159,8 +181,8 @@ export function TripBottomTabBar() {
             >
               <Icon
                 className={cn(
-                  "size-5 shrink-0 motion-safe:transition-[transform,color] motion-safe:duration-200 motion-safe:ease-out sm:size-[1.35rem]",
-                  active && "scale-105 text-primary",
+                  "size-5 shrink-0 motion-safe:transition-colors motion-safe:duration-150 sm:size-[1.35rem]",
+                  active && "text-primary lg:origin-center lg:scale-105",
                 )}
                 aria-hidden
                 strokeWidth={active ? 2.25 : 1.75}
