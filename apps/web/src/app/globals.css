@@ -242,3 +242,106 @@
 .checklist-composer-glow {
   animation: checklist-composer-ring 2.1s ease-out 1 forwards;
 }
+
+@keyframes lv-shake-x {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+.lv-shake-once {
+  animation: lv-shake-x 420ms ease-out 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-shake-once {
+    animation: none;
+  }
+}
+
+/* Пульс / «прыжок» выбранной точки на Google Maps (AdvancedMarker DOM). */
+@keyframes lv-map-marker-bob {
+  0%,
+  100% {
+    transform: scale(var(--lv-marker-scale-focus, 1.14)) translateY(0);
+  }
+  50% {
+    transform: scale(var(--lv-marker-scale-focus, 1.14)) translateY(-4px);
+  }
+}
+
+.lv-map-marker--pulse {
+  z-index: 2;
+  --lv-marker-scale-focus: 1.14;
+  outline: 2px solid oklch(0.72 0.11 52 / 0.55);
+  outline-offset: 2px;
+  animation: lv-map-marker-bob 1.25s ease-in-out infinite;
+}
+
+.dark .lv-map-marker--pulse {
+  outline-color: oklch(0.78 0.1 52 / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-map-marker--pulse {
+    animation: none;
+    transform: scale(var(--lv-marker-scale-focus, 1.14));
+  }
+}
+
+/*
+ * Переход между разделами поездки: только opacity — без transform.
+ * Иначе tw-animate `enter` тянет transform на предка → `fixed` у панели карты /
+ * модалок привязан не к viewport и «уезжает» под таб-бар (сосед без transform).
+ */
+@keyframes lv-route-segment-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-page-segment-enter {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lv-page-segment-enter {
+    animation: lv-route-segment-enter 280ms ease-out both;
+  }
+}
+
+@keyframes lv-data-loaded-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-data-loaded-enter {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lv-data-loaded-enter {
+    animation: lv-data-loaded-enter 420ms ease-out both;
+  }
+}

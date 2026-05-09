@@ -3,6 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
+import {
+  LV_MODAL_BACKDROP_ENTER_CLASS,
+  LV_MODAL_PANEL_ENTER_CLASS,
+  lvStaggerStyle,
+} from "@/lib/lv-motion";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -462,7 +467,13 @@ export default function TripMapPage() {
       </header>
 
       {error ? (
-        <div className="fixed top-[calc(8rem+env(safe-area-inset-top))] left-1/2 z-20 w-[min(92vw,42rem)] -translate-x-1/2 rounded-lg border border-destructive/40 bg-card/95 px-4 py-2 text-sm text-destructive shadow-lg backdrop-blur">
+        <div
+          className={cn(
+            "fixed top-[calc(8rem+env(safe-area-inset-top))] left-1/2 z-20 w-[min(92vw,42rem)] -translate-x-1/2 rounded-lg border border-destructive/40 bg-card/95 px-4 py-2 text-sm text-destructive shadow-lg backdrop-blur",
+            "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2 motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out motion-safe:fill-mode-both",
+          )}
+          role="alert"
+        >
           {error}
         </div>
       ) : null}
@@ -548,10 +559,17 @@ export default function TripMapPage() {
                 Список ({points.length})
               </h3>
               <ul className="space-y-2" aria-labelledby="trip-points-heading">
-                {points.map((point) => (
+                {points.map((point, index) => (
                   <li
                     key={point.id}
-                    className="relative cursor-pointer rounded-lg border bg-background/80 p-2 transition-colors hover:bg-muted/50"
+                    className={cn(
+                      "relative cursor-pointer rounded-lg border bg-background/80 p-2 transition-[background-color,box-shadow,transform] duration-200 hover:bg-muted/50",
+                      "motion-safe:active:scale-[0.99]",
+                      "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:zoom-in-95 motion-safe:fill-mode-backwards motion-safe:duration-300 motion-safe:ease-out",
+                      focusedPointId === point.id &&
+                        "shadow-md ring-2 ring-primary/35 ring-offset-1 ring-offset-background",
+                    )}
+                    style={lvStaggerStyle(index, 40)}
                     onClick={() => {
                       setFocusedPointId(point.id);
                       setSelectedLat(point.coordinates.lat);
@@ -633,8 +651,18 @@ export default function TripMapPage() {
       </aside>
 
       {pointModalOpen ? (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/45 px-4 py-6">
-          <div className="w-[min(100%,70rem)] max-h-[92vh] overflow-y-auto rounded-2xl border bg-card p-4 shadow-2xl">
+        <div
+          className={cn(
+            "fixed inset-0 z-[2120] flex items-center justify-center bg-black/45 px-4 py-6",
+            LV_MODAL_BACKDROP_ENTER_CLASS,
+          )}
+        >
+          <div
+            className={cn(
+              "w-[min(100%,70rem)] max-h-[92vh] overflow-y-auto rounded-2xl border bg-card p-4 shadow-2xl",
+              LV_MODAL_PANEL_ENTER_CLASS,
+            )}
+          >
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold">
                 {editingId ? "Редактирование точки" : "Новая точка"}

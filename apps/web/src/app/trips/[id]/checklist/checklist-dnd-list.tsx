@@ -383,7 +383,7 @@ function RootLineRow(props: {
               disabled={a.togglingId === row.id}
               onChange={() => void a.toggleDone(row)}
               className={cn(
-                "size-5 shrink-0 rounded border-input",
+                "size-5 shrink-0 accent-primary rounded border-input motion-safe:transition-transform motion-safe:duration-150 motion-safe:active:scale-90 motion-safe:ease-out",
                 a.editingId === row.id && "mt-1.5",
               )}
             />
@@ -444,6 +444,7 @@ function RootLineRow(props: {
                 <span
                   className={cn(
                     "wrap-break-word text-[14px] leading-snug tracking-[-0.01em]",
+                    "transition-[color,text-decoration-thickness,text-decoration-color,opacity] duration-200 motion-reduce:duration-150",
                     row.done &&
                       "text-muted-foreground line-through decoration-muted-foreground/60",
                   )}
@@ -508,7 +509,7 @@ function SectionLineRow(props: {
               disabled={a.togglingId === row.id}
               onChange={() => void a.toggleDone(row)}
               className={cn(
-                "size-5 shrink-0 rounded border-input",
+                "size-5 shrink-0 accent-primary rounded border-input motion-safe:transition-transform motion-safe:duration-150 motion-safe:active:scale-90 motion-safe:ease-out",
                 a.editingId === row.id && "mt-1.5",
               )}
             />
@@ -569,6 +570,7 @@ function SectionLineRow(props: {
                 <span
                   className={cn(
                     "wrap-break-word text-[14px] leading-snug tracking-[-0.01em]",
+                    "transition-[color,text-decoration-thickness,text-decoration-color,opacity] duration-200 motion-reduce:duration-150",
                     row.done &&
                       "text-muted-foreground line-through decoration-muted-foreground/60",
                   )}

@@ -3,6 +3,12 @@
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { clearAuthToken, getAuthToken } from "@/lib/auth-token";
+import {
+  LV_MODAL_BACKDROP_ENTER_CLASS,
+  LV_MODAL_PANEL_ENTER_CLASS,
+  lvStaggerStyle,
+} from "@/lib/lv-motion";
+import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +30,8 @@ export default function TripsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createShakeEpoch, setCreateShakeEpoch] = useState(0);
+  const [createShakePlay, setCreateShakePlay] = useState(false);
 
   const loadTrips = useCallback(async () => {
     if (!getAuthToken()) {
@@ -79,6 +87,13 @@ export default function TripsPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isCreateModalOpen, closeCreateModal]);
 
+  useEffect(() => {
+    if (!createShakeEpoch) return;
+    setCreateShakePlay(true);
+    const timer = window.setTimeout(() => setCreateShakePlay(false), 460);
+    return () => window.clearTimeout(timer);
+  }, [createShakeEpoch]);
+
   async function onCreateTrip(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -93,6 +108,7 @@ export default function TripsPage() {
       closeCreateModal();
       await loadTrips();
     } catch (createError) {
+      setCreateShakeEpoch((epoch) => epoch + 1);
       setError(
         createError instanceof Error
           ? createError.message
@@ -122,12 +138,18 @@ export default function TripsPage() {
 
       {isCreateModalOpen ? (
         <div
-          className="fixed inset-0 z-[2000] flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/50 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
+          className={cn(
+            "fixed inset-0 z-[2000] flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/50 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]",
+            LV_MODAL_BACKDROP_ENTER_CLASS,
+          )}
           onClick={closeCreateModal}
           role="presentation"
         >
           <div
-            className="my-6 max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-full max-w-lg overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl"
+            className={cn(
+              "my-6 max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] w-full max-w-lg overflow-y-auto rounded-2xl border bg-background p-5 shadow-2xl",
+              LV_MODAL_PANEL_ENTER_CLASS,
+            )}
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-trip-modal-title"
@@ -145,7 +167,13 @@ export default function TripsPage() {
                 Закрыть
               </Button>
             </div>
-            <form onSubmit={onCreateTrip} className="mt-4 space-y-3">
+            <form
+              onSubmit={onCreateTrip}
+              className={cn(
+                "mt-4 space-y-3",
+                createShakePlay && "lv-shake-once",
+              )}
+            >
               {error ? (
                 <p className="text-sm text-destructive" role="alert">
                   {error}
@@ -191,9 +219,26 @@ export default function TripsPage() {
       ) : null}
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Загружаем поездки...</p>
+        <div
+          className="grid gap-3"
+          aria-busy="true"
+          aria-label="Загрузка списка поездок"
+        >
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={`sk-${i}`}
+              className="rounded-2xl border bg-muted/20 p-5 shadow-none"
+              style={lvStaggerStyle(i)}
+            >
+              <div className="h-5 w-[min(100%,14rem)] rounded-md bg-muted/60 motion-safe:animate-pulse motion-reduce:bg-muted/40" />
+              <div className="mt-3 h-3 w-full max-w-md rounded-md bg-muted/35 motion-safe:animate-pulse motion-reduce:bg-muted/30" />
+              <div className="mt-2 h-3 w-48 rounded-md bg-muted/35 motion-safe:animate-pulse motion-reduce:bg-muted/30" />
+              <div className="mt-4 h-3 w-36 rounded-md bg-muted/30 motion-safe:animate-pulse motion-reduce:bg-muted/28" />
+            </div>
+          ))}
+        </div>
       ) : trips.length === 0 ? (
-        <div className="rounded-2xl border border-dashed bg-muted/25 px-6 py-10 text-center">
+        <div className="rounded-2xl border border-dashed bg-muted/25 px-6 py-10 text-center motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out">
           <p className="text-sm text-muted-foreground">
             Пока нет поездок. Создайте первую через кнопку «Новая поездка».
           </p>
@@ -208,10 +253,14 @@ export default function TripsPage() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {trips.map((trip) => (
+          {trips.map((trip, index) => (
             <article
               key={trip.id}
-              className="rounded-2xl border bg-card p-5 shadow-sm"
+              className={cn(
+                "rounded-2xl border bg-card p-5 shadow-sm",
+                "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:zoom-in-95 motion-safe:fill-mode-backwards motion-safe:duration-300 motion-safe:ease-out",
+              )}
+              style={lvStaggerStyle(index)}
             >
               <div className="flex items-start justify-between gap-4">
                 <div>

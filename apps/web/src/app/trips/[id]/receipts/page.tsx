@@ -3,6 +3,11 @@
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
+import {
+  LV_DIALOG_BACKDROP_MOTION_CLASS,
+  LV_DIALOG_POPUP_MOTION_CLASS,
+  lvStaggerStyle,
+} from "@/lib/lv-motion";
 import { cn } from "@/lib/utils";
 import { Dialog } from "@base-ui/react/dialog";
 import { Receipt, Trash2 } from "lucide-react";
@@ -139,7 +144,14 @@ export default function TripReceiptsListPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Чеки</h1>
       </div>
 
-      {error ? <p className="mb-4 text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p
+          className="mb-4 text-sm text-destructive motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 motion-safe:fill-mode-both"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
 
       <section className="mb-8 rounded-xl border bg-muted/30 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -170,8 +182,18 @@ export default function TripReceiptsListPage() {
       <Dialog.Root open={createOpen} onOpenChange={handleCreateModalChange}>
         <Dialog.Portal>
           <div className="fixed inset-0 z-[2100] flex items-center justify-center overflow-y-auto overscroll-y-contain px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <Dialog.Backdrop className="absolute inset-0 z-0 bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-            <Dialog.Popup className="relative z-10 my-6 w-[min(100vw-2rem,28rem)] max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
+            <Dialog.Backdrop
+              className={cn(
+                "absolute inset-0 z-0 bg-black/55 backdrop-blur-[1px]",
+                LV_DIALOG_BACKDROP_MOTION_CLASS,
+              )}
+            />
+            <Dialog.Popup
+              className={cn(
+                "relative z-10 my-6 w-[min(100vw-2rem,28rem)] max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none",
+                LV_DIALOG_POPUP_MOTION_CLASS,
+              )}
+            >
               <Dialog.Title className="text-lg font-semibold tracking-tight">
                 Новый чек
               </Dialog.Title>
@@ -243,7 +265,19 @@ export default function TripReceiptsListPage() {
       </Dialog.Root>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <div className="space-y-3" aria-busy="true" aria-label="Загрузка чеков">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={`r-sk-${i}`}
+              className="rounded-xl border bg-muted/20 p-4"
+              style={lvStaggerStyle(i, 56)}
+            >
+              <div className="h-4 w-48 rounded-md bg-muted/55 motion-safe:animate-pulse" />
+              <div className="mt-3 h-3 w-full rounded-md bg-muted/35 motion-safe:animate-pulse" />
+              <div className="mt-2 h-3 max-w-[14rem] rounded-md bg-muted/35 motion-safe:animate-pulse" />
+            </div>
+          ))}
+        </div>
       ) : list.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Чеков пока нет. Нажмите «Новый чек», затем добавьте фото и выполните
@@ -251,9 +285,15 @@ export default function TripReceiptsListPage() {
         </p>
       ) : (
         <ul className="space-y-3">
-          {list.map((r) => (
+          {list.map((r, index) => (
             <li key={r.id}>
-              <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm sm:flex-row sm:items-start sm:justify-between">
+              <div
+                className={cn(
+                  "flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm transition-[background-color] duration-150 hover:bg-muted/15 motion-safe:active:scale-[0.997] motion-safe:ease-out sm:flex-row sm:items-start sm:justify-between",
+                  "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:zoom-in-95 motion-safe:fill-mode-backwards motion-safe:duration-300 motion-safe:ease-out",
+                )}
+                style={lvStaggerStyle(index)}
+              >
                 <Link
                   className="min-w-0 flex-1"
                   href={`/trips/${id}/receipts/${r.id}`}

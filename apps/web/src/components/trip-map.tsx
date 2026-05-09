@@ -77,6 +77,7 @@ function AdvancedMarker(props: {
   category: TripPoint["category"];
   imageUrl?: string | null;
   isPreview?: boolean;
+  isHighlighted?: boolean;
   onClick?(pointId?: string): void;
 }) {
   const { pointId, onClick } = props;
@@ -122,9 +123,16 @@ function AdvancedMarker(props: {
         contentRef.current.textContent = props.isPreview ? "🎯" : style.emoji;
       }
       contentRef.current.style.opacity = props.isPreview ? "0.9" : "1";
-      contentRef.current.style.transform = props.isPreview
-        ? "scale(1.08)"
-        : "scale(1)";
+      if (props.isPreview) {
+        contentRef.current.style.transform = "scale(1.08)";
+        contentRef.current.classList.remove("lv-map-marker--pulse");
+      } else if (props.isHighlighted) {
+        contentRef.current.style.transform = "";
+        contentRef.current.classList.add("lv-map-marker--pulse");
+      } else {
+        contentRef.current.style.transform = "scale(1)";
+        contentRef.current.classList.remove("lv-map-marker--pulse");
+      }
     }
 
     if (!markerRef.current) {
@@ -149,6 +157,7 @@ function AdvancedMarker(props: {
     props.title,
     props.category,
     props.isPreview,
+    props.isHighlighted,
     props.imageUrl,
   ]);
 
@@ -396,6 +405,7 @@ export function TripMap(props: {
           title={`${point.title} (${point.category})`}
           category={point.category}
           imageUrl={point.imageUrl}
+          isHighlighted={activePointId === point.id}
           onClick={(pointId) => {
             if (!pointId) return;
             setActiveGooglePoi(null);

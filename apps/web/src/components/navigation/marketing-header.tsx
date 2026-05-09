@@ -97,7 +97,13 @@ function MarketingProfileChip({ user }: { user: AuthUserProfile }) {
           <User className="size-3.5 shrink-0 text-muted-foreground" />
         )}
         <span className="min-w-0 truncate text-sm">{user.name}</span>
-        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        <ChevronDown
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out motion-reduce:transition-none",
+            open && "rotate-180 motion-reduce:rotate-0",
+          )}
+          aria-hidden
+        />
       </Button>
       {open ? (
         <div className="absolute top-full right-0 z-[200] mt-1.5">

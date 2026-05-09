@@ -2,6 +2,7 @@
 
 import { useTheme } from "@/components/theme-provider";
 import type { AuthUserProfile } from "@/lib/trpc";
+import { cn } from "@/lib/utils";
 import { LogOut, Moon, Settings, Shield, Sun } from "lucide-react";
 import Link from "next/link";
 
@@ -17,7 +18,12 @@ export function ProfileMenuDropdown({ user, onClose, onLogout }: Props) {
 
   return (
     <div
-      className="w-60 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+      className={cn(
+        "w-60 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-lg",
+        "motion-safe:origin-top-right motion-safe:animate-in motion-safe:fade-in",
+        "motion-safe:slide-in-from-top-2 motion-safe:zoom-in-95",
+        "motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.33,1,0.68,1)] motion-safe:fill-mode-both",
+      )}
       role="menu"
     >
       <div className="border-b border-border px-3 py-2">

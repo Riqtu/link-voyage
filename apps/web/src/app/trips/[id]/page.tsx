@@ -4,6 +4,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
 import {
+  LV_DIALOG_BACKDROP_MOTION_CLASS,
+  LV_DIALOG_POPUP_MOTION_CLASS,
+} from "@/lib/lv-motion";
+import {
   tripTimezoneOptionsForGroup,
   tripTimezoneSelectModel,
 } from "@/lib/trip-timezone-options";
@@ -340,8 +344,18 @@ export default function TripDetailsPage() {
           >
             <Dialog.Portal>
               <div className="fixed inset-0 z-[2100] flex items-center justify-center overflow-y-auto overscroll-y-contain px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
-                <Dialog.Backdrop className="absolute inset-0 z-0 bg-black/55 backdrop-blur-[1px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-                <Dialog.Popup className="relative z-10 my-6 w-[min(100vw-2rem,32rem)] max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none">
+                <Dialog.Backdrop
+                  className={cn(
+                    "absolute inset-0 z-0 bg-black/55 backdrop-blur-[1px]",
+                    LV_DIALOG_BACKDROP_MOTION_CLASS,
+                  )}
+                />
+                <Dialog.Popup
+                  className={cn(
+                    "relative z-10 my-6 w-[min(100vw-2rem,32rem)] max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl outline-none",
+                    LV_DIALOG_POPUP_MOTION_CLASS,
+                  )}
+                >
                   <Dialog.Title className="text-lg font-semibold tracking-tight">
                     Настройки поездки
                   </Dialog.Title>
