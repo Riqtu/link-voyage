@@ -6,6 +6,7 @@ alwaysApply: false
 
 # API Standards (`apps/api`)
 
+- Свод архитектуры монорепо (слои web + api): см. **`26-web-architecture-guide.mdc`**.
 - Keep Nest modules cohesive: controller/entrypoints thin, business logic in services/use-cases.
 - Prefer typed tRPC procedures for internal app API and validate inputs with Zod.
 - Keep context creation explicit and side-effect free.

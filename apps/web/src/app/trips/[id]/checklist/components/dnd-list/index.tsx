@@ -30,6 +30,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useMemo, type RefObject } from "react";
+import { PACK_UNIT_QUICK } from "../../lib/constants";
 import {
   buildPackRenderBlocks,
   packPeersForReorder,
@@ -38,9 +39,7 @@ import {
   sectionLinesAllComplete,
   type PackItemView,
   type PackRenderBlock,
-} from "./checklist-helpers";
-
-const UNITS_DL = ["шт", "пар", "уп.", "компл"];
+} from "../../lib/pack-layout";
 
 export type ChecklistDndActions = {
   tripId: string;
@@ -84,7 +83,7 @@ type ChecklistDndListProps = {
   onReorderPeers: (
     parentSectionId: string | null,
     orderedItemIds: string[],
-  ) => Promise<void>;
+  ) => Promise<void> | void;
 };
 
 function closeDetailsFromEvent(e: React.MouseEvent | React.KeyboardEvent) {
@@ -835,7 +834,7 @@ export function ChecklistDndList(props: ChecklistDndListProps) {
   return (
     <>
       <datalist id={unitsListId}>
-        {UNITS_DL.map((u) => (
+        {PACK_UNIT_QUICK.map((u) => (
           <option key={u} value={u} />
         ))}
       </datalist>

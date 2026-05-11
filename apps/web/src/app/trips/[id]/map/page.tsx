@@ -10,72 +10,16 @@ import {
 } from "@/lib/lv-motion";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
-import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-const TripMap = dynamic(
-  () => import("@/components/trip-map").then((mod) => mod.TripMap),
-  { ssr: false },
-);
-
-type TripPoint = Awaited<
-  ReturnType<ReturnType<typeof getApiClient>["tripPoint"]["list"]["query"]>
->[number];
-type GeocodeResult = Awaited<
-  ReturnType<
-    ReturnType<typeof getApiClient>["accommodation"]["geocodeByQuery"]["mutate"]
-  >
->[number];
-
-type PlacePhotoLike = {
-  getURI?(options?: { maxWidthPx?: number; maxHeightPx?: number }): string;
-  getUrl?(options?: { maxWidth?: number; maxHeight?: number }): string;
-  uri?: string;
-  url?: string;
-};
-
-type PlaceLike = {
-  displayName?: { text?: string };
-  formattedAddress?: string;
-  photos?: PlacePhotoLike[];
-  fetchFields(request: { fields: string[] }): Promise<void>;
-};
-
-type PlaceConstructor = new (options: {
-  id: string;
-  requestedLanguage?: string;
-}) => PlaceLike & {
-  constructor: {
-    searchByText(request: {
-      textQuery?: string;
-      fields: string[];
-      language?: string;
-      maxResultCount?: number;
-    }): Promise<{ places: PlaceLike[] }>;
-  };
-};
-
-type PlacesLibraryLike = {
-  Place?: PlaceConstructor;
-};
-
-const categoryOptions: Array<{ value: TripPoint["category"]; label: string }> =
-  [
-    { value: "sight", label: "Место" },
-    { value: "food", label: "Еда" },
-    { value: "stay", label: "Жилье" },
-    { value: "transport", label: "Транспорт" },
-    { value: "other", label: "Другое" },
-  ];
-
-const categoryLabelByValue: Record<TripPoint["category"], string> = {
-  sight: "Достопримечательность",
-  food: "Еда и кафе",
-  stay: "Проживание",
-  transport: "Транспорт",
-  other: "Другое место",
-};
+import { TripMapLazy } from "./components/trip-map-lazy";
+import { categoryLabelByValue, categoryOptions } from "./lib/category-meta";
+import type {
+  PlaceLike,
+  PlacePhotoLike,
+  PlacesLibraryLike,
+} from "./lib/places-shim-types";
+import type { GeocodeResult, TripPoint } from "./lib/types";
 
 export default function TripMapPage() {
   const { id } = useParams<{ id: string }>();
@@ -441,7 +385,7 @@ export default function TripMapPage() {
             Загружаем карту...
           </p>
         ) : (
-          <TripMap
+          <TripMapLazy
             center={center}
             points={points}
             focusedPointId={focusedPointId}
@@ -681,7 +625,7 @@ export default function TripMapPage() {
 
             <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
               <section className="h-[52vh] rounded-xl border bg-card p-2">
-                <TripMap
+                <TripMapLazy
                   center={
                     selectedLat !== null && selectedLng !== null
                       ? { lat: selectedLat, lng: selectedLng }

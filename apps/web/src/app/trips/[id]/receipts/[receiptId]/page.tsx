@@ -8,48 +8,18 @@ import {
   patchReimbursedOptimistic,
 } from "@/lib/receipt-shares-preview";
 import { cn } from "@/lib/utils";
-import { Check, ChevronLeft, Loader2, Sparkles, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, Loader2, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
-
-type ReceiptDetail = Awaited<
-  ReturnType<ReturnType<typeof getApiClient>["tripReceipt"]["byId"]["query"]>
->;
-
-function formatMoney(n: number, currency: string): string {
-  return `${n.toLocaleString("ru-RU", {
-    minimumFractionDigits: n % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })} ${currency}`;
-}
-
-function formatRub(n: number): string {
-  return `${n.toLocaleString("ru-RU", {
-    minimumFractionDigits: n % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })} RUB`;
-}
-
-/** Сохранить порции на сервер через столько мс после последнего набора в поле */
-const QTY_COMMIT_DEBOUNCE_MS = 480;
-
-/** Одна единица в чеке — достаточно да/нет вместо поля количества */
-function isSingleQuantityLine(qty: number): boolean {
-  return Number.isFinite(qty) && qty > 0 && Math.abs(qty - 1) < 1e-3;
-}
-
-function cloneReceipt(d: ReceiptDetail): ReceiptDetail {
-  return {
-    ...d,
-    lineItems: d.lineItems.map((l) => ({
-      ...l,
-      participantUserIds: [...l.participantUserIds],
-      consumptions: l.consumptions.map((c) => ({ ...c })),
-    })),
-    reimbursedPayerUserIds: [...d.reimbursedPayerUserIds],
-  };
-}
+import { ReceiptImageModal } from "./components/image-modal";
+import { formatMoney, formatRub } from "./lib/format";
+import {
+  cloneReceipt,
+  isSingleQuantityLine,
+  QTY_COMMIT_DEBOUNCE_MS,
+} from "./lib/receipt-helpers";
+import type { ReceiptDetail } from "./lib/types";
 
 export default function ReceiptDetailPage() {
   const router = useRouter();
@@ -1079,35 +1049,11 @@ export default function ReceiptDetailPage() {
         <p className="text-sm text-muted-foreground">Чек не загружен.</p>
       ) : null}
 
-      {photoModalOpen && data?.imageUrl ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Фото чека"
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-y-contain bg-black/85 px-4 pt-[max(1rem,env(safe-area-inset-top)+0.75rem)] pb-[max(1rem,env(safe-area-inset-bottom)+0.75rem)]"
-          onClick={() => setPhotoModalOpen(false)}
-        >
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            className="fixed top-[max(1rem,calc(env(safe-area-inset-top)+1rem))] right-[max(1rem,env(safe-area-inset-right))] z-[1] shadow-md"
-            aria-label="Закрыть"
-            onClick={(e) => {
-              e.stopPropagation();
-              setPhotoModalOpen(false);
-            }}
-          >
-            <X className="size-4" aria-hidden />
-          </Button>
-          <img
-            src={data.imageUrl}
-            alt="Чек крупно"
-            className="mx-auto mt-14 max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-5rem)] max-w-full object-contain pb-6 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      ) : null}
+      <ReceiptImageModal
+        open={photoModalOpen}
+        imageUrl={data?.imageUrl}
+        onClose={() => setPhotoModalOpen(false)}
+      />
     </main>
   );
 }

@@ -6,10 +6,11 @@ alwaysApply: false
 
 # Web Standards (`apps/web`)
 
+- Цельная шпаргалка по структуре сегментов, `lib/components/hooks` и составным виджетам: **`26-web-architecture-guide.mdc`**.
 - Use App Router patterns and keep route components focused on UI composition.
 - Build UI with shadcn primitives first; keep styling token-driven via Tailwind variables.
 - Prefer server components by default; use client components only when state/effects are required.
-- Keep pages lightweight; extract reusable logic into `src/lib` or feature-level modules.
+- Keep `page.tsx` лёгким: сборка экрана и wiring; тяжёлая логика и UI — в **колокации** того же сегмента (`lib/`, `components/`, `hooks/` рядом с `page.tsx`, см. правило модульности). Общий `src/lib` — для разделяемого между маршрутами кода.
 
 # PWA and Build Constraints
 

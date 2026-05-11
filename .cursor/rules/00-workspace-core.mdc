@@ -14,6 +14,7 @@ alwaysApply: true
 
 # Architecture Direction
 
+- Свод правил слоёв и колокации web/api: **`26-web-architecture-guide.mdc`**.
 - Keep business logic modular and domain-first.
 - Share contracts with runtime validation (prefer Zod at boundaries).
 - Optimize for collaboration features: realtime-safe updates, idempotent writes, and auditability.
