@@ -4,7 +4,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { getApiClient } from "@/lib/api-client";
 import { getAuthToken } from "@/lib/auth-token";
 import { cn } from "@/lib/utils";
-import { ChevronRight, ListChecks, Trash2, User } from "lucide-react";
+import { Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
@@ -217,47 +217,6 @@ export default function TripDetailsPage() {
               {trip.description}
             </p>
           ) : null}
-
-          <div className="mt-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Подготовка
-            </p>
-            <Link
-              href={`/trips/${id}/checklist`}
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                // base size задаёт h-8 — ломает многострочный ряд и иконку; явно даём высоту по содержимому
-                "mt-2 flex h-auto min-h-0 min-w-0 w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left font-normal whitespace-normal shadow-sm transition-colors sm:gap-3 sm:px-4 sm:py-3",
-                "border-border hover:border-primary/35 hover:bg-muted/50",
-              )}
-            >
-              <span className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
-                <span
-                  aria-hidden
-                  className="grid size-9 shrink-0 place-items-center rounded-md border border-primary/15 bg-primary/10 text-primary"
-                >
-                  <ListChecks className="size-4 shrink-0" strokeWidth={1.75} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-foreground">
-                    Мой чеклист
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
-                    Личный список вещей; видите только вы
-                  </span>
-                </span>
-              </span>
-              <ChevronRight
-                className="size-4 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-            </Link>
-          </div>
-
-          <p className="mt-4 text-xs text-muted-foreground">
-            Разделы поездки — в нижней панели: карта, жильё, чеклист, чеки и
-            документы.
-          </p>
 
           <div className="mt-6 rounded-xl border bg-muted/30 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
