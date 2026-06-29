@@ -93,6 +93,7 @@ function TripPointMarker(props: {
     null,
   );
   const style = CATEGORY_MARKER_STYLE[props.category];
+  const useAdvancedMarkers = props.useAdvancedMarkers;
 
   useEffect(() => {
     if (!contentRef.current) {
@@ -187,10 +188,10 @@ function TripPointMarker(props: {
   return (
     <GoogleMapMarker
       map={props.map}
-      useAdvancedMarkers={props.useAdvancedMarkers}
+      useAdvancedMarkers={useAdvancedMarkers}
       position={props.position}
       title={props.title}
-      content={advancedContent}
+      content={useAdvancedMarkers ? advancedContent : undefined}
       classicIcon={classicIcon}
       classicLabel={classicLabel}
       onClick={onClick ? () => onClick(pointId) : undefined}

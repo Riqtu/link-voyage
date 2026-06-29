@@ -4,7 +4,20 @@ import { useEffect, useRef } from "react";
 
 type LatLngLiteral = google.maps.LatLngLiteral;
 
+type MarkerRenderMode = "classic" | "advanced" | "none";
+
+/** `null` = ждём DOM-контент (trip); `undefined` = дефолтный pin (accommodation). */
+function resolveMarkerRenderMode(
+  useAdvancedMarkers: boolean,
+  content: HTMLElement | null | undefined,
+): MarkerRenderMode {
+  if (!useAdvancedMarkers) return "classic";
+  if (content === null) return "none";
+  return "advanced";
+}
+
 function useClassicMarker(props: {
+  active: boolean;
   map: google.maps.Map | null;
   position: LatLngLiteral;
   title?: string;
@@ -15,7 +28,10 @@ function useClassicMarker(props: {
   const markerRef = useRef<google.maps.Marker | null>(null);
 
   useEffect(() => {
-    if (!props.map) return;
+    if (!props.active || !props.map) {
+      markerRef.current?.setMap(null);
+      return;
+    }
     try {
       if (!markerRef.current) {
         markerRef.current = new google.maps.Marker({
@@ -36,14 +52,21 @@ function useClassicMarker(props: {
       markerRef.current?.setMap(null);
       markerRef.current = null;
     }
-  }, [props.map, props.position, props.title, props.icon, props.label]);
+  }, [
+    props.active,
+    props.map,
+    props.position,
+    props.title,
+    props.icon,
+    props.label,
+  ]);
 
   useEffect(() => {
     const marker = markerRef.current;
-    if (!marker || !props.onClick) return;
+    if (!marker || !props.onClick || !props.active) return;
     const listener = marker.addListener("click", props.onClick);
     return () => listener.remove();
-  }, [props.onClick]);
+  }, [props.active, props.onClick]);
 
   useEffect(() => {
     return () => {
@@ -54,6 +77,7 @@ function useClassicMarker(props: {
 }
 
 function useAdvancedMarker(props: {
+  active: boolean;
   map: google.maps.Map | null;
   position: LatLngLiteral;
   title?: string;
@@ -65,7 +89,10 @@ function useAdvancedMarker(props: {
   );
 
   useEffect(() => {
-    if (!props.map || !google.maps.marker?.AdvancedMarkerElement) return;
+    if (!props.active || !props.map || !google.maps.marker?.AdvancedMarkerElement) {
+      if (markerRef.current) markerRef.current.map = null;
+      return;
+    }
     try {
       if (!markerRef.current) {
         const options: google.maps.marker.AdvancedMarkerElementOptions = {
@@ -87,14 +114,20 @@ function useAdvancedMarker(props: {
       if (markerRef.current) markerRef.current.map = null;
       markerRef.current = null;
     }
-  }, [props.map, props.position, props.title, props.content]);
+  }, [
+    props.active,
+    props.map,
+    props.position,
+    props.title,
+    props.content,
+  ]);
 
   useEffect(() => {
     const marker = markerRef.current;
-    if (!marker || !props.onClick) return;
+    if (!marker || !props.onClick || !props.active) return;
     const listener = marker.addListener("gmp-click", props.onClick);
     return () => listener.remove();
-  }, [props.onClick]);
+  }, [props.active, props.onClick]);
 
   useEffect(() => {
     return () => {
@@ -109,14 +142,19 @@ export function GoogleMapMarker(props: {
   position: LatLngLiteral;
   title?: string;
   onClick?: () => void;
+  /** `null` — контент ещё не готов; `undefined` — дефолтный advanced-pin. */
   content?: HTMLElement | null;
   classicIcon?: string | google.maps.Icon | google.maps.Symbol;
   classicLabel?: google.maps.MarkerLabel;
 }) {
-  const advancedReady = props.useAdvancedMarkers && props.content !== null;
+  const mode = resolveMarkerRenderMode(
+    props.useAdvancedMarkers,
+    props.content,
+  );
 
   useClassicMarker({
-    map: advancedReady ? null : props.map,
+    active: mode === "classic",
+    map: props.map,
     position: props.position,
     title: props.title,
     onClick: props.onClick,
@@ -125,7 +163,8 @@ export function GoogleMapMarker(props: {
   });
 
   useAdvancedMarker({
-    map: advancedReady ? props.map : null,
+    active: mode === "advanced",
+    map: props.map,
     position: props.position,
     title: props.title,
     content: props.content,
