@@ -1,5 +1,8 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { useEffect } from "react";
 
 type Props = {
   open: boolean;
@@ -8,6 +11,20 @@ type Props = {
 };
 
 export function ReceiptImageModal({ open, imageUrl, onClose }: Props) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, onClose]);
+
   if (!open || !imageUrl) return null;
 
   return (

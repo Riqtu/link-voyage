@@ -8,6 +8,14 @@ export function isSingleQuantityLine(qty: number): boolean {
   return Number.isFinite(qty) && qty > 0 && Math.abs(qty - 1) < 1e-3;
 }
 
+export function viewerQtyOnLine(
+  line: ReceiptDetail["lineItems"][number],
+  userId: string,
+): number {
+  const c = line.consumptions.find((x) => x.userId === userId);
+  return c ? c.qty : 0;
+}
+
 export function cloneReceipt(d: ReceiptDetail): ReceiptDetail {
   return {
     ...d,
