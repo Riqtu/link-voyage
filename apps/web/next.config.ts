@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import withPWA from "@ducanh2912/next-pwa";
 import type { NextConfig } from "next";
 
@@ -7,8 +9,9 @@ const allowedDevOrigins =
     .filter(Boolean) ?? [];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
   reactStrictMode: true,
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   ...(allowedDevOrigins.length > 0 ? { allowedDevOrigins } : {}),
 };
 

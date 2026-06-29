@@ -1,0 +1,74 @@
+# Coolify: тип сборки Docker Compose, контекст — корень репозитория.
+# В Advanced отключите «Include Source Commit in Build», если слои Docker не кэшируются.
+# MongoDB и Redis подключайте отдельными сервисами Coolify или внешними URL в env.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3100
+      MONGODB_URI: ${MONGODB_URI}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      WEB_ORIGIN: ${WEB_ORIGIN}
+      GOOGLE_GEOCODING_API_KEY: ${GOOGLE_GEOCODING_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      GEMINI_ENRICH_MAX_OUTPUT_TOKENS: ${GEMINI_ENRICH_MAX_OUTPUT_TOKENS:-}
+      GEMINI_ENRICH_LOG: ${GEMINI_ENRICH_LOG:-}
+      GEMINI_HTTP_PROXY: ${GEMINI_HTTP_PROXY:-}
+      LINK_PREVIEW_PLAYWRIGHT: ${LINK_PREVIEW_PLAYWRIGHT:-}
+      LINK_PREVIEW_PLAYWRIGHT_TIMEOUT_MS: ${LINK_PREVIEW_PLAYWRIGHT_TIMEOUT_MS:-}
+      LINK_PREVIEW_PLAYWRIGHT_SETTLE_MS: ${LINK_PREVIEW_PLAYWRIGHT_SETTLE_MS:-}
+      LINK_PREVIEW_PLAYWRIGHT_SCROLL_PX: ${LINK_PREVIEW_PLAYWRIGHT_SCROLL_PX:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3100/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
+        NEXT_PUBLIC_GOOGLE_MAP_ID: ${NEXT_PUBLIC_GOOGLE_MAP_ID:-}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+      PORT: 3110
+      HOSTNAME: 0.0.0.0
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3110').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s

@@ -31,3 +31,27 @@ Or run apps separately:
 pnpm dev:web
 pnpm dev:api
 ```
+
+## Deploy (Coolify / Docker)
+
+Monorepo собирается из **корня** репозитория: `docker-compose.yml` поднимает `api` (Nest) и `web` (Next.js standalone).
+
+```bash
+cp .env.example .env
+# Заполните MONGODB_URI, REDIS_URL, JWT_SECRET, WEB_ORIGIN, NEXT_PUBLIC_API_URL и остальное.
+
+docker compose build
+docker compose up -d
+```
+
+**Coolify:** новый ресурс → Docker Compose → репозиторий link-voyage. Переменные окружения — в UI (как в `.env.example`). Для web и api назначьте домены в настройках сервисов.
+
+Ускорение повторных деплоев:
+
+- Advanced → **Include Source Commit in Build** — выкл.
+- При ручном Dockerfile: **Inject Build Args to Dockerfile** — выкл.
+- Образы используют BuildKit cache mounts для pnpm и `.next/cache`.
+
+API-образ включает системный Chromium (Alpine) для превью ссылок. Порты по умолчанию: api `3100`, web `3110`.
+
+Отдельные приложения вместо compose: build context `.`, Dockerfile `apps/web/Dockerfile` или `apps/api/Dockerfile`.
