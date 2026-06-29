@@ -4,9 +4,11 @@ import { GoogleMapMarker } from "@/components/google-map-marker";
 import { Button } from "@/components/ui/button";
 import {
   googleMapsLoadErrorMessage,
+  googleMapsAuthFailureMessage,
   googleMapsLoaderLibraries,
   GOOGLE_MAPS_JS_LOADER_ID,
   resolvePublicGoogleMapId,
+  useGoogleMapsAuthFailure,
   withGoogleMapId,
 } from "@/lib/google-maps-js-loader";
 import { cn } from "@/lib/utils";
@@ -223,6 +225,7 @@ export function TripMap(props: {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const mapId = resolvePublicGoogleMapId();
   const useAdvancedMarkers = mapId !== null;
+  const authFailed = useGoogleMapsAuthFailure();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const { isLoaded, loadError } = useJsApiLoader({
     id: GOOGLE_MAPS_JS_LOADER_ID,
@@ -347,10 +350,12 @@ export function TripMap(props: {
       </p>
     );
   }
-  if (loadError) {
+  if (loadError || authFailed) {
     return (
       <p className="p-3 text-sm text-destructive">
-        {googleMapsLoadErrorMessage(loadError)}
+        {loadError
+          ? googleMapsLoadErrorMessage(loadError)
+          : googleMapsAuthFailureMessage()}
       </p>
     );
   }
@@ -414,7 +419,8 @@ export function TripMap(props: {
         }
       }}
     >
-      {points.map((point) => (
+      {map
+        ? points.map((point) => (
         <TripPointMarker
           key={point.id}
           map={map}
@@ -433,7 +439,8 @@ export function TripMap(props: {
             if (selected) onPointPick?.(selected);
           }}
         />
-      ))}
+      ))
+        : null}
       {activePoint ? (
         <InfoWindowF
           position={activePoint.coordinates}
@@ -553,7 +560,7 @@ export function TripMap(props: {
           </div>
         </InfoWindowF>
       ) : null}
-      {selectedPoint ? (
+      {map && selectedPoint ? (
         <TripPointMarker
           key={`preview-${selectedPoint.lat}-${selectedPoint.lng}`}
           map={map}

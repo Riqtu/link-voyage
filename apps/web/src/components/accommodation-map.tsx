@@ -5,9 +5,11 @@ import { AccommodationStatusBadgeFromUnknown } from "@/components/accommodation-
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   googleMapsLoadErrorMessage,
+  googleMapsAuthFailureMessage,
   googleMapsLoaderLibraries,
   GOOGLE_MAPS_JS_LOADER_ID,
   resolvePublicGoogleMapId,
+  useGoogleMapsAuthFailure,
   withGoogleMapId,
 } from "@/lib/google-maps-js-loader";
 import { cn } from "@/lib/utils";
@@ -73,6 +75,7 @@ export function AccommodationMap(props: {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const mapId = resolvePublicGoogleMapId();
   const useAdvancedMarkers = mapId !== null;
+  const authFailed = useGoogleMapsAuthFailure();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const { isLoaded, loadError } = useJsApiLoader({
     id: GOOGLE_MAPS_JS_LOADER_ID,
@@ -145,10 +148,12 @@ export function AccommodationMap(props: {
       </p>
     );
   }
-  if (loadError) {
+  if (loadError || authFailed) {
     return (
       <p className="p-3 text-sm text-destructive">
-        {googleMapsLoadErrorMessage(loadError)}
+        {loadError
+          ? googleMapsLoadErrorMessage(loadError)
+          : googleMapsAuthFailureMessage()}
       </p>
     );
   }
@@ -183,7 +188,8 @@ export function AccommodationMap(props: {
         }
       }}
     >
-      {props.points.map((point) => {
+      {map
+        ? props.points.map((point) => {
         if (!point.coordinates) return null;
         return (
           <AccommodationMapMarker
@@ -201,7 +207,8 @@ export function AccommodationMap(props: {
             }}
           />
         );
-      })}
+      })
+        : null}
 
       {activePoint?.coordinates ? (
         <InfoWindowF
@@ -321,7 +328,7 @@ export function AccommodationMap(props: {
         </InfoWindowF>
       ) : null}
 
-      {props.selected ? (
+      {map && props.selected ? (
         <AccommodationMapMarker
           map={map}
           useAdvancedMarkers={useAdvancedMarkers}

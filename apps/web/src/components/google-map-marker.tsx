@@ -16,21 +16,26 @@ function useClassicMarker(props: {
 
   useEffect(() => {
     if (!props.map) return;
-    if (!markerRef.current) {
-      markerRef.current = new google.maps.Marker({
-        map: props.map,
-        position: props.position,
-        title: props.title,
-        icon: props.icon,
-        label: props.label,
-      });
-      return;
+    try {
+      if (!markerRef.current) {
+        markerRef.current = new google.maps.Marker({
+          map: props.map,
+          position: props.position,
+          title: props.title,
+          icon: props.icon,
+          label: props.label,
+        });
+        return;
+      }
+      markerRef.current.setMap(props.map);
+      markerRef.current.setPosition(props.position);
+      if (props.title) markerRef.current.setTitle(props.title);
+      if (props.icon !== undefined) markerRef.current.setIcon(props.icon);
+      if (props.label !== undefined) markerRef.current.setLabel(props.label);
+    } catch {
+      markerRef.current?.setMap(null);
+      markerRef.current = null;
     }
-    markerRef.current.setMap(props.map);
-    markerRef.current.setPosition(props.position);
-    if (props.title) markerRef.current.setTitle(props.title);
-    if (props.icon !== undefined) markerRef.current.setIcon(props.icon);
-    if (props.label !== undefined) markerRef.current.setLabel(props.label);
   }, [props.map, props.position, props.title, props.icon, props.label]);
 
   useEffect(() => {
@@ -52,7 +57,7 @@ function useAdvancedMarker(props: {
   map: google.maps.Map | null;
   position: LatLngLiteral;
   title?: string;
-  content: HTMLElement | null;
+  content?: HTMLElement | null;
   onClick?: () => void;
 }) {
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(
@@ -61,19 +66,27 @@ function useAdvancedMarker(props: {
 
   useEffect(() => {
     if (!props.map || !google.maps.marker?.AdvancedMarkerElement) return;
-    if (!markerRef.current) {
-      markerRef.current = new google.maps.marker.AdvancedMarkerElement({
-        map: props.map,
-        position: props.position,
-        title: props.title,
-        content: props.content ?? undefined,
-      });
-      return;
+    try {
+      if (!markerRef.current) {
+        const options: google.maps.marker.AdvancedMarkerElementOptions = {
+          map: props.map,
+          position: props.position,
+        };
+        if (props.title) options.title = props.title;
+        if (props.content) options.content = props.content;
+        markerRef.current = new google.maps.marker.AdvancedMarkerElement(
+          options,
+        );
+        return;
+      }
+      markerRef.current.map = props.map;
+      markerRef.current.position = props.position;
+      if (props.title) markerRef.current.title = props.title;
+      if (props.content) markerRef.current.content = props.content;
+    } catch {
+      if (markerRef.current) markerRef.current.map = null;
+      markerRef.current = null;
     }
-    markerRef.current.map = props.map;
-    markerRef.current.position = props.position;
-    if (props.title) markerRef.current.title = props.title;
-    markerRef.current.content = props.content;
   }, [props.map, props.position, props.title, props.content]);
 
   useEffect(() => {
@@ -100,8 +113,10 @@ export function GoogleMapMarker(props: {
   classicIcon?: string | google.maps.Icon | google.maps.Symbol;
   classicLabel?: google.maps.MarkerLabel;
 }) {
+  const advancedReady = props.useAdvancedMarkers && props.content !== null;
+
   useClassicMarker({
-    map: props.useAdvancedMarkers ? null : props.map,
+    map: advancedReady ? null : props.map,
     position: props.position,
     title: props.title,
     onClick: props.onClick,
@@ -110,10 +125,10 @@ export function GoogleMapMarker(props: {
   });
 
   useAdvancedMarker({
-    map: props.useAdvancedMarkers ? props.map : null,
+    map: advancedReady ? props.map : null,
     position: props.position,
     title: props.title,
-    content: props.content ?? null,
+    content: props.content,
     onClick: props.onClick,
   });
 
