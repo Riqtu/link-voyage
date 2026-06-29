@@ -1,15 +1,19 @@
 "use client";
 
+import { GoogleMapMarker } from "@/components/google-map-marker";
 import { AccommodationStatusBadgeFromUnknown } from "@/components/accommodation-status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
-  GOOGLE_MAP_MARKER_LIBRARY,
+  googleMapsLoadErrorMessage,
+  googleMapsLoaderLibraries,
   GOOGLE_MAPS_JS_LOADER_ID,
+  resolvePublicGoogleMapId,
+  withGoogleMapId,
 } from "@/lib/google-maps-js-loader";
 import { cn } from "@/lib/utils";
 import { GoogleMap, InfoWindowF, useJsApiLoader } from "@react-google-maps/api";
 import { ExternalLink, ListOrdered } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 function formatRubFromUsd(priceUsd: number, rubPerUsd: number): string {
   const rub = priceUsd * rubPerUsd;
@@ -33,53 +37,24 @@ type AccommodationPoint = {
   sourceUrl?: string;
 };
 
-function AdvancedMarker(props: {
+function AccommodationMapMarker(props: {
   map: google.maps.Map | null;
+  useAdvancedMarkers: boolean;
   pointId?: string;
   position: google.maps.LatLngLiteral;
   title?: string;
   onClick?(pointId?: string): void;
 }) {
-  const { map, pointId, position, title, onClick } = props;
-  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(
-    null,
+  const { pointId, onClick } = props;
+  return (
+    <GoogleMapMarker
+      map={props.map}
+      useAdvancedMarkers={props.useAdvancedMarkers}
+      position={props.position}
+      title={props.title}
+      onClick={onClick ? () => onClick(pointId) : undefined}
+    />
   );
-
-  useEffect(() => {
-    if (!map || !google.maps.marker?.AdvancedMarkerElement) return;
-    if (!markerRef.current) {
-      markerRef.current = new google.maps.marker.AdvancedMarkerElement({
-        map,
-        position,
-        title,
-      });
-      return;
-    }
-    markerRef.current.map = map;
-    markerRef.current.position = position;
-    if (title) {
-      markerRef.current.title = title;
-    }
-  }, [map, position, title]);
-
-  useEffect(() => {
-    const marker = markerRef.current;
-    if (!marker || !onClick) return;
-    const listener = marker.addListener("gmp-click", () => {
-      onClick(pointId);
-    });
-    return () => listener.remove();
-  }, [onClick, pointId, position]);
-
-  useEffect(() => {
-    return () => {
-      if (markerRef.current) {
-        markerRef.current.map = null;
-      }
-    };
-  }, []);
-
-  return null;
 }
 
 export function AccommodationMap(props: {
@@ -96,12 +71,13 @@ export function AccommodationMap(props: {
   rubPerUsd?: number | null;
 }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "DEMO_MAP_ID";
+  const mapId = resolvePublicGoogleMapId();
+  const useAdvancedMarkers = mapId !== null;
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const { isLoaded, loadError } = useJsApiLoader({
     id: GOOGLE_MAPS_JS_LOADER_ID,
     googleMapsApiKey: apiKey ?? "",
-    libraries: GOOGLE_MAP_MARKER_LIBRARY,
+    libraries: googleMapsLoaderLibraries(mapId),
   });
 
   const coords = useMemo(
@@ -172,7 +148,7 @@ export function AccommodationMap(props: {
   if (loadError) {
     return (
       <p className="p-3 text-sm text-destructive">
-        Не удалось загрузить Google Maps.
+        {googleMapsLoadErrorMessage(loadError)}
       </p>
     );
   }
@@ -191,7 +167,7 @@ export function AccommodationMap(props: {
         width: "100%",
         borderRadius: "0.75rem",
       }}
-      options={{ mapId, mapTypeControl: false }}
+      options={withGoogleMapId({ mapTypeControl: false }, mapId)}
       onLoad={(map) => {
         setMap(map);
       }}
@@ -210,9 +186,10 @@ export function AccommodationMap(props: {
       {props.points.map((point) => {
         if (!point.coordinates) return null;
         return (
-          <AdvancedMarker
+          <AccommodationMapMarker
             key={point.id}
             map={map}
+            useAdvancedMarkers={useAdvancedMarkers}
             pointId={point.id}
             position={{
               lat: point.coordinates.lat,
@@ -345,8 +322,9 @@ export function AccommodationMap(props: {
       ) : null}
 
       {props.selected ? (
-        <AdvancedMarker
+        <AccommodationMapMarker
           map={map}
+          useAdvancedMarkers={useAdvancedMarkers}
           position={{ lat: props.selected.lat, lng: props.selected.lng }}
         />
       ) : null}

@@ -1,9 +1,13 @@
 "use client";
 
+import { GoogleMapMarker } from "@/components/google-map-marker";
 import { Button } from "@/components/ui/button";
 import {
-  GOOGLE_MAP_MARKER_LIBRARY,
+  googleMapsLoadErrorMessage,
+  googleMapsLoaderLibraries,
   GOOGLE_MAPS_JS_LOADER_ID,
+  resolvePublicGoogleMapId,
+  withGoogleMapId,
 } from "@/lib/google-maps-js-loader";
 import { cn } from "@/lib/utils";
 import { GoogleMap, InfoWindowF, useJsApiLoader } from "@react-google-maps/api";
@@ -69,8 +73,9 @@ const CATEGORY_LABEL: Record<TripPoint["category"], string> = {
   other: "Другое место",
 };
 
-function AdvancedMarker(props: {
+function TripPointMarker(props: {
   map: google.maps.Map | null;
+  useAdvancedMarkers: boolean;
   pointId?: string;
   position: google.maps.LatLngLiteral;
   title?: string;
@@ -81,14 +86,13 @@ function AdvancedMarker(props: {
   onClick?(pointId?: string): void;
 }) {
   const { pointId, onClick } = props;
-  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [advancedContent, setAdvancedContent] = useState<HTMLDivElement | null>(
     null,
   );
-  const contentRef = useRef<HTMLDivElement | null>(null);
+  const style = CATEGORY_MARKER_STYLE[props.category];
 
   useEffect(() => {
-    if (!props.map || !google.maps.marker?.AdvancedMarkerElement) return;
-    const style = CATEGORY_MARKER_STYLE[props.category];
     if (!contentRef.current) {
       const markerEl = document.createElement("div");
       markerEl.style.width = "34px";
@@ -101,84 +105,95 @@ function AdvancedMarker(props: {
       markerEl.style.boxShadow = "0 2px 6px rgba(0,0,0,0.22)";
       contentRef.current = markerEl;
     }
-    if (contentRef.current) {
-      const hasPreviewImage =
-        typeof props.imageUrl === "string" && props.imageUrl.trim().length > 0;
-      if (hasPreviewImage && !props.isPreview) {
-        contentRef.current.style.border = "2px solid rgba(255,255,255,0.92)";
-        contentRef.current.style.backgroundImage = `url("${props.imageUrl}")`;
-        contentRef.current.style.backgroundSize = "cover";
-        contentRef.current.style.backgroundPosition = "center";
-        contentRef.current.style.backgroundRepeat = "no-repeat";
-        contentRef.current.style.color = "transparent";
-        contentRef.current.textContent = "";
-      } else {
-        contentRef.current.style.border = `2px solid ${style.border}`;
-        contentRef.current.style.background = style.bg;
-        contentRef.current.style.backgroundImage = "";
-        contentRef.current.style.backgroundSize = "";
-        contentRef.current.style.backgroundPosition = "";
-        contentRef.current.style.backgroundRepeat = "";
-        contentRef.current.style.color = style.text;
-        contentRef.current.textContent = props.isPreview ? "🎯" : style.emoji;
-      }
-      contentRef.current.style.opacity = props.isPreview ? "0.9" : "1";
-      if (props.isPreview) {
-        contentRef.current.style.transform = "scale(1.08)";
-        contentRef.current.classList.remove("lv-map-marker--pulse");
-      } else if (props.isHighlighted) {
-        contentRef.current.style.transform = "";
-        contentRef.current.classList.add("lv-map-marker--pulse");
-      } else {
-        contentRef.current.style.transform = "scale(1)";
-        contentRef.current.classList.remove("lv-map-marker--pulse");
-      }
-    }
+    const markerEl = contentRef.current;
+    if (!markerEl) return;
 
-    if (!markerRef.current) {
-      markerRef.current = new google.maps.marker.AdvancedMarkerElement({
-        map: props.map,
-        position: props.position,
-        title: props.title,
-        content: contentRef.current,
-      });
-      return;
+    const hasPreviewImage =
+      typeof props.imageUrl === "string" && props.imageUrl.trim().length > 0;
+    if (hasPreviewImage && !props.isPreview) {
+      markerEl.style.border = "2px solid rgba(255,255,255,0.92)";
+      markerEl.style.backgroundImage = `url("${props.imageUrl}")`;
+      markerEl.style.backgroundSize = "cover";
+      markerEl.style.backgroundPosition = "center";
+      markerEl.style.backgroundRepeat = "no-repeat";
+      markerEl.style.color = "transparent";
+      markerEl.textContent = "";
+    } else {
+      markerEl.style.border = `2px solid ${style.border}`;
+      markerEl.style.background = style.bg;
+      markerEl.style.backgroundImage = "";
+      markerEl.style.backgroundSize = "";
+      markerEl.style.backgroundPosition = "";
+      markerEl.style.backgroundRepeat = "";
+      markerEl.style.color = style.text;
+      markerEl.textContent = props.isPreview ? "🎯" : style.emoji;
     }
-
-    markerRef.current.map = props.map;
-    markerRef.current.position = props.position;
-    if (props.title) {
-      markerRef.current.title = props.title;
+    markerEl.style.opacity = props.isPreview ? "0.9" : "1";
+    if (props.isPreview) {
+      markerEl.style.transform = "scale(1.08)";
+      markerEl.classList.remove("lv-map-marker--pulse");
+    } else if (props.isHighlighted) {
+      markerEl.style.transform = "";
+      markerEl.classList.add("lv-map-marker--pulse");
+    } else {
+      markerEl.style.transform = "scale(1)";
+      markerEl.classList.remove("lv-map-marker--pulse");
     }
-    markerRef.current.content = contentRef.current;
+    setAdvancedContent(markerEl);
   }, [
-    props.map,
-    props.position,
-    props.title,
     props.category,
-    props.isPreview,
-    props.isHighlighted,
     props.imageUrl,
+    props.isHighlighted,
+    props.isPreview,
+    style.bg,
+    style.border,
+    style.emoji,
+    style.text,
   ]);
 
-  useEffect(() => {
-    const marker = markerRef.current;
-    if (!marker || !onClick) return;
-    const listener = marker.addListener("gmp-click", () => {
-      onClick?.(pointId);
-    });
-    return () => listener.remove();
-  }, [onClick, pointId, props.position]);
-
-  useEffect(() => {
-    return () => {
-      if (markerRef.current) {
-        markerRef.current.map = null;
-      }
+  const classicIcon = useMemo((): google.maps.Icon | google.maps.Symbol => {
+    const hasPreviewImage =
+      typeof props.imageUrl === "string" && props.imageUrl.trim().length > 0;
+    if (hasPreviewImage && !props.isPreview) {
+      return {
+        url: props.imageUrl!,
+        scaledSize: new google.maps.Size(34, 34),
+        anchor: new google.maps.Point(17, 17),
+      };
+    }
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      fillColor: style.bg,
+      fillOpacity: 1,
+      strokeColor: style.border,
+      strokeWeight: 2,
+      scale: props.isPreview ? 13 : 11,
     };
-  }, []);
+  }, [props.imageUrl, props.isPreview, style.bg, style.border]);
 
-  return null;
+  const classicLabel = useMemo((): google.maps.MarkerLabel | undefined => {
+    const hasPreviewImage =
+      typeof props.imageUrl === "string" && props.imageUrl.trim().length > 0;
+    if (hasPreviewImage && !props.isPreview) return undefined;
+    return {
+      text: props.isPreview ? "🎯" : style.emoji,
+      color: style.text,
+      fontSize: "15px",
+    };
+  }, [props.imageUrl, props.isPreview, style.emoji, style.text]);
+
+  return (
+    <GoogleMapMarker
+      map={props.map}
+      useAdvancedMarkers={props.useAdvancedMarkers}
+      position={props.position}
+      title={props.title}
+      content={advancedContent}
+      classicIcon={classicIcon}
+      classicLabel={classicLabel}
+      onClick={onClick ? () => onClick(pointId) : undefined}
+    />
+  );
 }
 
 export function TripMap(props: {
@@ -206,12 +221,13 @@ export function TripMap(props: {
     onAddGooglePoi,
   } = props;
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "DEMO_MAP_ID";
+  const mapId = resolvePublicGoogleMapId();
+  const useAdvancedMarkers = mapId !== null;
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const { isLoaded, loadError } = useJsApiLoader({
     id: GOOGLE_MAPS_JS_LOADER_ID,
     googleMapsApiKey: apiKey ?? "",
-    libraries: GOOGLE_MAP_MARKER_LIBRARY,
+    libraries: googleMapsLoaderLibraries(mapId),
   });
   const [selectedMarkerPointId, setSelectedMarkerPointId] = useState<
     string | null
@@ -334,7 +350,7 @@ export function TripMap(props: {
   if (loadError) {
     return (
       <p className="p-3 text-sm text-destructive">
-        Не удалось загрузить Google Maps.
+        {googleMapsLoadErrorMessage(loadError)}
       </p>
     );
   }
@@ -353,23 +369,25 @@ export function TripMap(props: {
         width: "100%",
         borderRadius: "0.75rem",
       }}
-      options={{
+      options={withGoogleMapId(
+        {
+          mapTypeControl: false,
+          zoomControl: true,
+          streetViewControl: true,
+          fullscreenControl: true,
+          gestureHandling: "greedy",
+          zoomControlOptions: {
+            position: google.maps.ControlPosition.LEFT_CENTER,
+          },
+          streetViewControlOptions: {
+            position: google.maps.ControlPosition.LEFT_CENTER,
+          },
+          fullscreenControlOptions: {
+            position: google.maps.ControlPosition.LEFT_CENTER,
+          },
+        },
         mapId,
-        mapTypeControl: false,
-        zoomControl: true,
-        streetViewControl: true,
-        fullscreenControl: true,
-        gestureHandling: "greedy",
-        zoomControlOptions: {
-          position: google.maps.ControlPosition.LEFT_CENTER,
-        },
-        streetViewControlOptions: {
-          position: google.maps.ControlPosition.LEFT_CENTER,
-        },
-        fullscreenControlOptions: {
-          position: google.maps.ControlPosition.LEFT_CENTER,
-        },
-      }}
+      )}
       onLoad={(map) => {
         setMap(map);
       }}
@@ -397,9 +415,10 @@ export function TripMap(props: {
       }}
     >
       {points.map((point) => (
-        <AdvancedMarker
+        <TripPointMarker
           key={point.id}
           map={map}
+          useAdvancedMarkers={useAdvancedMarkers}
           pointId={point.id}
           position={{ lat: point.coordinates.lat, lng: point.coordinates.lng }}
           title={`${point.title} (${point.category})`}
@@ -535,9 +554,10 @@ export function TripMap(props: {
         </InfoWindowF>
       ) : null}
       {selectedPoint ? (
-        <AdvancedMarker
+        <TripPointMarker
           key={`preview-${selectedPoint.lat}-${selectedPoint.lng}`}
           map={map}
+          useAdvancedMarkers={useAdvancedMarkers}
           position={selectedPoint}
           title="Новая точка (предпросмотр)"
           category="other"
